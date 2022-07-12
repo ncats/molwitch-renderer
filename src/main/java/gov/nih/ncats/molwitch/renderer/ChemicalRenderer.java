@@ -147,25 +147,34 @@ public class ChemicalRenderer {
 			totalBondLength+= bond.getBondLength();
 		}
 		double avgBondLength= totalBondLength/c.getBondCount();
-		System.out.printf("average bond length: %f\n", avgBondLength);
+		//System.out.printf("average bond length: %f\n", avgBondLength);
 		Rectangle2D.Double bounds = computeAtomicCoordinateBounds(c);
 		double xSpread = bounds.getWidth();
 		double ySpread = bounds.getHeight();
-		System.out.printf("xSpread: %f .  ySpread: %f \n", xSpread, ySpread);
+		//System.out.printf("xSpread: %f .  ySpread: %f \n", xSpread, ySpread);
 		double averageSpread = (xSpread+ySpread)/2;
 		int width= (int) Math.round( size * xSpread/averageSpread);
 		if(width<10) width=size;
 		int height= (int) Math.round(size * ySpread/averageSpread);
 		if(height<10) height= size;
-		System.out.printf("width: %d; height: %d\n", width, height);
+		//System.out.printf("width: %d; height: %d\n", width, height);
 		return createImage (c, width, height,false);
 	}
 
 	public BufferedImage createImageAutoAdjust (Chemical c, int maxWidth, int minWidth, int maxHeight, int minHeight,
 												double requestedAverageBondLength) {
 
+		Rectangle2D.Double rectangle= getApproximateBoundsFor(c, maxWidth, minWidth, maxHeight, minHeight, requestedAverageBondLength);
+		int width= (int) Math.round(rectangle.getWidth());
+		int height= (int) Math.round(rectangle.getHeight());
+		//System.out.printf("final width: %d; height: %d.\n", width, height);
+		return createImage (c, width, height, false);
+	}
+
+	public Rectangle2D.Double getApproximateBoundsFor (Chemical c, int maxWidth, int minWidth, int maxHeight, int minHeight,
+												double requestedAverageBondLength) {
 		Optional<Double> foundAverageBondLength = computeAverageBondLength(c);
-		System.out.printf("average bond length: %f\n", foundAverageBondLength.isPresent() ? foundAverageBondLength.get() : 0.0);
+		//System.out.printf("average bond length: %f\n", foundAverageBondLength.isPresent() ? foundAverageBondLength.get() : 0.0);
 		double scaleFactor =1.0;
 		if( foundAverageBondLength.isPresent() && foundAverageBondLength.get()> 0) {
 			scaleFactor= requestedAverageBondLength / foundAverageBondLength.get();
@@ -173,13 +182,13 @@ public class ChemicalRenderer {
 		Rectangle2D.Double atomicCoordinateBounds = computeAtomicCoordinateBounds(c);
 		double xSpread0 = atomicCoordinateBounds.getWidth();
 		double ySpread0 = atomicCoordinateBounds.getHeight();
-		System.out.printf("xSpread0: %f.  ySpread0: %f \n", xSpread0, ySpread0);
+		//System.out.printf("xSpread0: %f.  ySpread0: %f \n", xSpread0, ySpread0);
 		double xSpread= scaleFactor*xSpread0;
 		double ySpread= scaleFactor*ySpread0;
-		System.out.printf("scaled xSpread: %f.  ySpread: %f \n", xSpread, ySpread);
+		//System.out.printf("scaled xSpread: %f.  ySpread: %f \n", xSpread, ySpread);
 		int width=  (int) Math.round( xSpread);
 		int height=(int) Math.round(ySpread);
-		System.out.printf("initial width: %d; height: %d\n", width, height);
+		//System.out.printf("initial width: %d; height: %d\n", width, height);
 		if(width<minWidth) width=minWidth;
 		if(width>maxWidth) width=maxWidth;
 
@@ -198,8 +207,8 @@ public class ChemicalRenderer {
 		//one last check
 		if(height< minHeight) height= minHeight;
 		if(width< minWidth) width=minWidth;
-		System.out.printf("final width: %d; height: %d. scaleFinal: %f\n", width, height, scaleFinal);
-		return createImage (c, width, height, false);
+		//System.out.printf("final width: %d; height: %d. scaleFinal: %f\n", width, height, scaleFinal);
+		return new Rectangle2D.Double(0, 0, width, height );
 	}
 
 	public BufferedImage createImage (File inputMol, int width, int height, boolean round) throws IOException{
@@ -231,7 +240,7 @@ public class ChemicalRenderer {
 				double secondAtomY= c.getAtom(j).getAtomCoordinates().getY();
 
 				double distance = Math.sqrt(Math.pow( (secondAtomX-firstAtomX), 2) + Math.pow((secondAtomY-firstAtomY),2));
-				System.out.printf("atom 1: %d; atom 2: %d; distance: %f\n", c.getAtom(i).getAtomicNumber(), c.getAtom(j).getAtomicNumber(), distance);
+				//System.out.printf("atom 1: %d; atom 2: %d; distance: %f\n", c.getAtom(i).getAtomicNumber(), c.getAtom(j).getAtomicNumber(), distance);
 				totalDistance+= distance;
 				totalDistances++;
 			}
@@ -249,10 +258,10 @@ public class ChemicalRenderer {
 				double secondAtomY= c.getAtom(j).getAtomCoordinates().getY();
 
 				double distance = Math.sqrt(Math.pow( (secondAtomX-firstAtomX), 2) + Math.pow((secondAtomY-firstAtomY),2));
-				System.out.printf("atom 1: %d x: %f, y: %f; atom 2: %d x: %f, y: %f; distance: %f\n",
+				/*System.out.printf("atom 1: %d x: %f, y: %f; atom 2: %d x: %f, y: %f; distance: %f\n",
 						c.getAtom(i).getAtomicNumber(), c.getAtom(i).getAtomCoordinates().getX(), c.getAtom(i).getAtomCoordinates().getY(),
 						c.getAtom(j).getAtomicNumber(), c.getAtom(j).getAtomCoordinates().getX(), c.getAtom(j).getAtomCoordinates().getY(),
-						distance);
+						distance);*/
 				if( distance > 0 && (lowest==null || distance< lowest)) {
 					lowest = distance;
 				}
@@ -293,8 +302,8 @@ public class ChemicalRenderer {
 		}
 		double xSpread = maxX - minX;
 		double ySpread = maxY - minY;
-		System.out.printf("xSpread: %f (minX: %f, maxX: %f).  ySpread: %f (minY: %f, maxY: %f)\n", xSpread, minX, maxX,
-				ySpread, minY, maxY);
+		/*System.out.printf("xSpread: %f (minX: %f, maxX: %f).  ySpread: %f (minY: %f, maxY: %f)\n", xSpread, minX, maxX,
+				ySpread, minY, maxY);*/
 		return new Rectangle2D.Double(minX, minY, xSpread, ySpread);
 	}
 }

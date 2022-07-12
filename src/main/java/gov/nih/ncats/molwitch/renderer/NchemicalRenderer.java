@@ -35,6 +35,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.awt.font.GlyphVector;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -177,6 +178,10 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	 */
 	@Override
 	public void renderChem(Graphics2D g9, Chemical c, int x, int y, int width, int height) {
+		
+		boolean firstPass=true;
+		Rectangle2D.Double realBounds=null;
+		
 		//exit early if no atoms with "no structure" message
 		if(c.getAtomCount() ==0){
 
@@ -195,7 +200,22 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			g9.drawString("NO STRUCTURE", (width-x)/2 -(int)(textWidth/2),(height-y)/2);
 			return;
 		}
-		Graphics2DTemp g2 = new Graphics2DTemp(g9);
+		
+		
+		while(firstPass){
+		Graphics2DTemp g2 = new Graphics2DTemp(g9);	
+		if(realBounds!=null){
+			firstPass=false;
+			//g2.drawd(realBounds);
+		}
+		//TODO: delete, only debugging
+		//firstPass=false;
+		
+		if(firstPass){
+			g2.disable();
+		}		
+		
+		
 		String s = c.getProperty(protProperty);
 		if (s != null) {
 			if (!s.trim().equals("")) {
@@ -487,7 +507,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			cheight = defHeight;
 		}
 		// System.out.println("Size:" + cwidth + "," + cheight);
-		System.out.printf("original wMarge: %f; hMarge: %f\n", wMarge, hMarge);
+		//System.out.printf("original wMarge: %f; hMarge: %f\n", wMarge, hMarge);
 		//wMarge=wMarge/2;
 		//hMarge=hMarge/2;
 
@@ -497,7 +517,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		int newMarge = Math.max(
 				g2.getFontMetrics(defaultFont.deriveFont((float) (DEF_FONT_PERCENT * resize * BONDAVG))).getHeight(),
 				0);
-		System.out.printf("original newMarge: %d\n", newMarge);
+		//System.out.printf("original newMarge: %d\n", newMarge);
 		newMarge=newMarge/3;
 
 		adjW = (width - wMarge - newMarge) / cwidth;
@@ -505,12 +525,49 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		resize = Math.abs(Math.min(adjW, adjH));
 
 		AffineTransformParent centerTransform = ggen.makeAffineTransform();
-		System.out.println("after ggen.makeAffineTransform(); resize: " + resize);
+		//System.out.println("after ggen.makeAffineTransform(); resize: " + resize);
 
+		//this creates the basic approx bounds
 		centerTransform.translate(ncenterX, ncenterY);
 		// centerTransform.rotate(Math.PI/9);
-		centerTransform.scale((resize*0.95), -resize);
+		centerTransform.scale(resize, -resize);
 		centerTransform.translate(-centerX, -centerY);
+		
+		double paddingX=1;
+		double paddingY=1;
+		
+		double theRealScale=1;
+		if(!firstPass && realBounds!=null){
+			
+			double xmin = realBounds.getMinX();
+			double xmax = realBounds.getMaxX();
+			double ymin = realBounds.getMinY();
+			double ymax = realBounds.getMaxY();
+			double centerx = (xmax+xmin)/2;
+			double centery = (ymax+ymin)/2;
+			double ssy = (height-2*paddingY)/(ymax-ymin);
+			double ssx = (width-2*paddingX)/(xmax-xmin);
+			theRealScale = Math.min(ssx,ssy);
+			double bx = (width*0.5)-theRealScale*(centerx);
+			double by = (height*0.5)-theRealScale*(centery);
+			//TODO it may be that the order of these should be swapped
+			//System.out.println("theRealScale: " + theRealScale);
+			//New
+			AffineTransform af = new AffineTransform();
+			//TODO it may be that the order of these should be swapped
+			af.translate(bx, by);
+			af.scale(theRealScale, theRealScale);
+			//af.translate(0, 0);
+//			af.scale(theRealScale*1.5, theRealScale*1.5);
+
+
+			//TODO It may be that it should be preConcatenate
+			Graphics2DTemp.AffineTransformWrapper waf= new Graphics2DTemp.AffineTransformWrapper(af);
+			waf.concatenate(centerTransform);
+			centerTransform =waf;
+		}
+		
+		
 
 		float bondWidth = (float) (DEF_STROKE_PERCENT * resize * BONDAVG);
 		float braketFrac = 0.7f;
@@ -523,7 +580,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		BasicStroke dashed = new BasicStroke(bondWidth / 2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, bondWidth,
 				dash, 0.0f);
 		BasicStroke solidREC = new BasicStroke(bondWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER);
-		float fsize = (float) (DEF_FONT_PERCENT * resize * BONDAVG);
+		float fsize = (float) (DEF_FONT_PERCENT * resize * BONDAVG * theRealScale);
 		Font setfont = defaultFont.deriveFont(fsize);
 		Font brafont = defaultFont.deriveFont(fsize * braketFrac);
 		g2.setFont(setfont);
@@ -1075,7 +1132,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			if(drawSuperatomLabels){
 				for(SGroup sgroup : c.getSGroups()){
 					if(sgroup.getType() == SGroupType.SUPERATOM_OR_ABBREVIATION){
-						sgroup.getSubscript().ifPresent( text->{
+						AffineTransformParent finalCenterTransform = centerTransform;
+						sgroup.getSubscript().ifPresent(text->{
 
 							Optional<Atom> atomToUseCoordsOf = sgroup.getBonds().map(b->{
 								Atom a = b.getAtom1();
@@ -1087,7 +1145,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 							}).findFirst();
 							if(atomToUseCoordsOf.isPresent()){
 								double[] p = new double[2];
-								centerTransform.transform(atomToUseCoordsOf.get().getAtomCoordinates().xy(), 0, p, 0, 1);
+								finalCenterTransform.transform(atomToUseCoordsOf.get().getAtomCoordinates().xy(), 0, p, 0, 1);
 								String formattedText = formatSuperAtomLabel(text);
 
 								FontMetrics metrics = g2.getFontMetrics();
@@ -1152,6 +1210,11 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 		}
 		 
+		
+		realBounds = g2.getBounds().orElse(null);
+			if(realBounds==null)break;
+			
+		}
 	}
 
 	private void drawBracketedSgroup(Graphics2DTemp g2, float maxX, float maxY, float minX, float minY, AffineTransformParent centerTransform, BasicStroke solidThin, float fsize, SGroup cg, Rectangle2D.Float rect) {
