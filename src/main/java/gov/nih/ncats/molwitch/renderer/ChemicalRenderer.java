@@ -123,12 +123,37 @@ public class ChemicalRenderer {
 		render(g2d, Chemical.parseMol(inputMol), x,y, width, height, round);
 	}
 	public void render(Graphics2D g2d, Chemical c, int x, int y, int width, int height, boolean round) {
-		renderer.renderChem (g2d, c, x,y, width, height, round);
-		getOptions().captionBottom(c)
-				.ifPresent(caption ->renderer.drawText(g2d,x,y,width,height,caption,1)); // 1 is bottom, 0 is top);;
-		getOptions().captionTop(c)
-		.ifPresent(caption ->renderer.drawText(g2d,x,y,width,height,caption,0)); // 1 is bottom, 0 is top);;
-
+		
+		//the offsets on the bounds rectangle needed to draw the captions
+		double ddy=0; //expect positive
+		double ddh=0; //expect negative
+		Optional<String> capTop = getOptions().capTop(c);
+		Optional<String> capBottom = getOptions().captionBottom(c);
+		
+		//calculate bounds for the captions to restrict the area for drawing
+		if(capTop.isPresent()){
+			Rectangle2D.Double boundstop = renderer.drawText(g2d,x,y,width,height,caption,0, true); // 1 is bottom, 0 is top			
+			//the y-coordinate must be moved down by 
+			//the top gap amount
+			ddy = ((y)-boundsBot.getMaxY());
+			//the height must be decreased by the same amount
+			ddh += ddy;
+		}
+		if(capBottom.isPresent()){
+			Rectangle2D.Double boundsBot = renderer.drawText(g2d,x,y,width,height,caption,1, true); // 1 is bottom, 0 is top			
+			//the height must be decreased by the bottom gap amount
+			ddh = ((y+height)-boundsBot.getMinY());
+		}
+		//then draw
+		renderer.renderChem (g2d, c, x,y+ddy, width, height-ddh, round);
+		
+		//then draw captions
+		if(capTop.isPresent()){
+			renderer.drawText(g2d,x,y,width,height,caption,0, false); // 1 is bottom, 0 is top			
+		}
+		if(capBottom.isPresent()){
+			renderer.drawText(g2d,x,y,width,height,caption,1, false); // 1 is bottom, 0 is top						
+		}
 	}
 	public BufferedImage createImage (String inputMol, int size) throws IOException{
 		return createImage (Chemical.parse(inputMol), size, size, true);
