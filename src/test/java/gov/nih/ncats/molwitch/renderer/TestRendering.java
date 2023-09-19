@@ -20,9 +20,9 @@ package gov.nih.ncats.molwitch.renderer;
 
 import gov.nih.ncats.molwitch.Chemical;
 import gov.nih.ncats.molwitch.MolWitch;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -33,12 +33,13 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-@Ignore
+@Disabled
 public class TestRendering {
 
     String IMAGE_DIR = "images/";
 
     @Test
+    @Disabled
     public void renderOverlap() throws Exception{
         ChemicalRenderer renderer = new ChemicalRenderer();
         Chemical c = Chemical.parseMol(new File(getClass().getResource("/overlap.mol").getFile()));
@@ -55,7 +56,7 @@ public class TestRendering {
 
 
         boolean result1 =ImageIO.write(image, "PNG", new File( IMAGE_DIR+MolWitch.getModuleName() +"_benzoic_acid4.png"));
-        Assert.assertTrue(result1);
+        Assertions.assertTrue(result1);
 
     }
 
@@ -68,7 +69,7 @@ public class TestRendering {
         BufferedImage image=renderer.createImage(c, 600);
 
         boolean result1 =ImageIO.write(image, "PNG", new File( IMAGE_DIR+MolWitch.getModuleName() +"_usp_steroid.png"));
-        Assert.assertTrue(result1);
+        Assertions.assertTrue(result1);
     }
 
     /*
@@ -83,7 +84,7 @@ public class TestRendering {
             File molfile = new File(getClass().getResource("/"+m).getFile());
             if(!molfile.exists()){
                 System.err.println("Error! molfile requested does not exist");
-                Assert.fail("molfile must be readable");
+                Assertions.fail("molfile must be readable");
             }
             boolean result1 = false;
             try {
@@ -94,7 +95,7 @@ public class TestRendering {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            Assert.assertTrue(result1);
+            Assertions.assertTrue(result1);
         });
 
     }
@@ -147,7 +148,7 @@ public class TestRendering {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            Assert.assertTrue(result1);
+            Assertions.assertTrue(result1);
 
         });
     }
@@ -195,7 +196,7 @@ public class TestRendering {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            Assert.assertTrue(result1);
+            Assertions.assertTrue(result1);
 
         });
     }
@@ -244,7 +245,7 @@ public class TestRendering {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            Assert.assertTrue(result1);
+            Assertions.assertTrue(result1);
 
         });
     }
@@ -287,7 +288,7 @@ public class TestRendering {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            Assert.assertTrue(result1);
+            Assertions.assertTrue(result1);
 
         });
 
@@ -305,7 +306,7 @@ public class TestRendering {
         }
         double min = ChemicalRenderer.computeLowestInterAtomDistance(c).get();
         System.out.println("lowest interatomic distance " + min);
-        Assert.assertTrue(min>= 100);
+        Assertions.assertTrue(min>= 100);
     }
 
     @Test
@@ -328,7 +329,7 @@ public class TestRendering {
             System.out.printf("box for %s: x=%f, y=%f, width=%f, height=%f\n", mol, rectangle.x,
                     rectangle.y, rectangle.width, rectangle.height);
 
-            Assert.assertTrue(rectangle !=null);
+            Assertions.assertTrue(rectangle !=null);
         });
     }
 
@@ -367,9 +368,55 @@ public class TestRendering {
                     lower, upper, lower, bondLength );
             System.out.printf("x: %f, y: %f, width: %f, height: %f\n", approxBounds.getX(),
                     approxBounds.getY(), approxBounds.getWidth(), approxBounds.getHeight());
-            Assert.assertNotNull(approxBounds);
+            Assertions.assertNotNull(approxBounds);
 
         });
+    }
+
+    @Test
+    public void renderChallengingSMILES() throws Exception{
+        String folder ="images\\";
+        String smiles = "[H][C@@](COC(=O)CCCCCCCCCCCCCCC)(COP([O-])(=O)OCC[N+](C)(C)C)OC(=O)CCCCCCC\\C=C/C\\C=C/CCCCC";
+            RendererOptions rendererOptions = RendererOptions.createUSPLike();
+            rendererOptions=rendererOptions.captionTop(c -> c.getProperty("TOP_TEXT"));
+            rendererOptions=rendererOptions.captionBottom(c -> c.getProperty("BOTTOM_TEXT"));
+            ChemicalRenderer renderer = new ChemicalRenderer(rendererOptions);
+
+            renderer.setShadowVisible(false);
+            Chemical c = null;
+            try {
+                c = Chemical.parse(smiles);
+                c.generateCoordinates();
+                c.setProperty("BOTTOM_TEXT", "Smiles");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            renderer.setBackgroundColor(Color.white);
+            renderer.setShadowVisible(false);
+
+            //simulate call from GSRS 2.7
+            int size=300;
+            int lower = size/2;
+            int upper = 2*size;
+            double baseBondLength=75;
+            double bondLength=baseBondLength;
+            System.out.println("lower: " + lower + "; upper: " + upper + "; bond length: " + bondLength);
+            Rectangle2D.Double rect = renderer.getApproximateBoundsFor(c, upper, lower, upper, lower, bondLength);
+            int width=(int)Math.round(rect.getWidth());
+            int height=(int)Math.round(rect.getHeight());
+
+
+            BufferedImage image=renderer.createImage(c, width, height, false);
+            System.out.println("completed image creation");
+            boolean result1 = false;
+            try {
+                result1 = ImageIO.write(image, "PNG", new File(folder +MolWitch.getModuleName()
+                         +"internal_test_smiles.png"));
+                System.out.println("wrote");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            Assertions.assertTrue(result1);
     }
 
 }

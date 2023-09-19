@@ -18,11 +18,12 @@
 
 package gov.nih.ncats.molwitch.renderer;import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferByte;
 import java.io.File;
 import java.io.IOException;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public final class ImageTestUtil {
 
     private ImageTestUtil(){

@@ -18,8 +18,8 @@
 
 package gov.nih.ncats.molwitch.renderer;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
-import static org.junit.Assert.*;
 
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -27,11 +27,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.junit.Test;
 
 import gov.nih.ncats.molwitch.Atom;
 import gov.nih.ncats.molwitch.AtomCoordinates;
 import gov.nih.ncats.molwitch.Chemical;
+import org.junit.jupiter.api.Test;
 
 public class TestBoundingBox {
 

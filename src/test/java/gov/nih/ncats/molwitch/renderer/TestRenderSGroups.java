@@ -20,10 +20,8 @@ package gov.nih.ncats.molwitch.renderer;
 
 import gov.nih.ncats.molwitch.Chemical;
 import gov.nih.ncats.molwitch.MolWitch;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -31,7 +29,7 @@ import java.io.File;
 import java.nio.file.Files;
 
 //doing RBG tests on buffers gives different results
-@Ignore
+@Disabled
 public class TestRenderSGroups {
 
 

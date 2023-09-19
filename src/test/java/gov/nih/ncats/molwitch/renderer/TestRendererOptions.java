@@ -18,20 +18,20 @@
 
 package gov.nih.ncats.molwitch.renderer;
 
-import org.junit.Test;
-
 import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawOptions;
 import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawProperties;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class TestRendererOptions {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class TestRendererOptions {
 
 	@Test
-	public void defaultUsesDefaultValuesFromEnum() {
+	void defaultUsesDefaultValuesFromEnum() {
 		RendererOptions renderer =  RendererOptions.createDefault();
 		
 		for(DrawOptions opt : DrawOptions.values()) {
@@ -46,7 +46,7 @@ public class TestRendererOptions {
 
 	
 	@Test
-	public void overrideDrawOptions() {
+	void overrideDrawOptions() {
 		RendererOptions renderer =  RendererOptions.createDefault();
 		
 		for(DrawOptions opt : DrawOptions.values()) {
@@ -55,7 +55,7 @@ public class TestRendererOptions {
 		}
 	}
 	@Test
-	public void overrideDrawProperties() {
+	void overrideDrawProperties() {
 		RendererOptions renderer =  RendererOptions.createDefault();
 		
 		for(DrawProperties opt : DrawProperties.values()) {
@@ -64,7 +64,7 @@ public class TestRendererOptions {
 		}
 	}
 	@Test
-	public void changeSettingsViaMapString() {
+	void changeSettingsViaMapString() {
 		RendererOptions renderer =  RendererOptions.createDefault();
 		
 		Map<String, Object> map = new HashMap<>();
@@ -83,7 +83,7 @@ public class TestRendererOptions {
 	}
 	
 	@Test
-	public void changeSettingsViaMapDoubleAndBoolean() {
+	void changeSettingsViaMapDoubleAndBoolean() {
 		RendererOptions renderer =  RendererOptions.createDefault();
 		
 		Map<String, Object> map = new HashMap<>();

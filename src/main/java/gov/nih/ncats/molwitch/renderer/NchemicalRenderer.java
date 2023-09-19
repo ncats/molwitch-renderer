@@ -51,7 +51,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -1258,6 +1257,15 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				rect.y + rect.height, rect.x + rect.width,
 				rect.y, rect.x + rect.width,
 				rect.y + rect.height };
+		if( isSingleUnconnectedAtomSGroup(cg)) {
+			//float scaleFactor = 0.03f;
+			float displacement =0.5f;
+			System.out.printf("SingleUnconnectedAtomSGroup width: %.2f; height: %.2f; coord[0]: %.2f; coord[2]: %.2f\n",
+					rect.width, rect.height, coord[0], coord[2]);
+			//wild guess for now
+			coord[0]=coord[0]-displacement;
+			coord[2]=coord[2]-displacement;
+		}
 		float[] ncoord = new float[8];
 
 
@@ -1333,6 +1341,17 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		}
 	}
 
+	/*
+	Return true when the SGroup consists of only unconnected atoms of a given type
+	 */
+	private boolean isSingleUnconnectedAtomSGroup(SGroup sGroup){
+		if(sGroup.getBonds().count()>0){
+			return false;
+		}
+		int[] atomTypes= {8};
+		List<Integer> allowedAtomTypes = Collections.singletonList(8);
+		return sGroup.getAtoms().filter(a-> allowedAtomTypes.contains( a.getAtomicNumber())).count() == sGroup.getAtoms().count();
+	}
 	private static Rectangle2D.Float computeBracketCoordsFor(SGroup cg, double bondWidth){
 		Rectangle2D rt;
 		if(cg.bracketsSupported()){

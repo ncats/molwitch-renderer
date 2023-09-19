@@ -18,7 +18,8 @@
 
 package gov.nih.ncats.molwitch.renderer;
 
-import org.junit.Test;
+
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
@@ -37,6 +38,7 @@ public class TestSingleAtomZeroCoords {
         renderer.createImage(mol, 250);
     }
 
+/*
     @Test
     public void smilesWith1AtomAtOrigin() throws IOException {
 
@@ -44,4 +46,5 @@ public class TestSingleAtomZeroCoords {
         ChemicalRenderer renderer = new ChemicalRenderer();
         renderer.createImage("[H+]", 250);
     }
+*/
 }

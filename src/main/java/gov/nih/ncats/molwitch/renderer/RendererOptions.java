@@ -360,8 +360,15 @@ public class RendererOptions {
 
 		return opts;
 	}
-	
-	
+
+
+	public static RendererOptions createUSPColorsLike() {
+		RendererOptions opts = createUSPLike();
+
+		opts.setDrawOption(DrawOptions.DRAW_GREYSCALE, false);
+		return opts;
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
