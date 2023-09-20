@@ -38,19 +38,9 @@ import java.awt.font.GlyphVector;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.OptionalInt;
+import java.lang.reflect.Field;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -1188,6 +1178,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				if(rect == null){
 					continue;
 				}
+				sgroup.setParentChemical(c);
 				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect);
 
 			}
@@ -1258,11 +1249,14 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				rect.y, rect.x + rect.width,
 				rect.y + rect.height };
 		if( isSingleUnconnectedAtomSGroup(cg)) {
-			//float scaleFactor = 0.03f;
-			float displacement =0.5f;
-			System.out.printf("SingleUnconnectedAtomSGroup width: %.2f; height: %.2f; coord[0]: %.2f; coord[2]: %.2f\n",
-					rect.width, rect.height, coord[0], coord[2]);
-			//wild guess for now
+			Chemical parent = cg.getParentChemical();
+			double newMaxP=0.0;
+			Rectangle2D boundingBox = BoundingBox.computeBoundingBoxFor(parent, newMaxP);
+			//guess as to what looks good
+			float displacement = (float) boundingBox.getWidth()/25.0f + 0.3f;
+
+			System.out.printf("SingleUnconnectedAtomSGroup width: %.2f; height: %.2f; coord[0]: %.2f; coord[2]: %.2f; mol width: %.2f; displacement: %.2f\n",
+					rect.width, rect.height, coord[0], coord[2], boundingBox.getWidth(), displacement);
 			coord[0]=coord[0]-displacement;
 			coord[2]=coord[2]-displacement;
 		}
@@ -1349,8 +1343,10 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			return false;
 		}
 		int[] atomTypes= {8};
-		List<Integer> allowedAtomTypes = Collections.singletonList(8);
-		return sGroup.getAtoms().filter(a-> allowedAtomTypes.contains( a.getAtomicNumber())).count() == sGroup.getAtoms().count();
+		Integer oxygen_atomic_number = 8;
+		Integer chlorine_atomic_number = 17;
+		List<Integer> allowedAtomTypes = Arrays.asList(oxygen_atomic_number, chlorine_atomic_number);
+		return sGroup.getAtoms().filter(a-> allowedAtomTypes.contains( a.getAtomicNumber()) && a.getImplicitHCount()>0).count() == sGroup.getAtoms().count();
 	}
 	private static Rectangle2D.Float computeBracketCoordsFor(SGroup cg, double bondWidth){
 		Rectangle2D rt;
