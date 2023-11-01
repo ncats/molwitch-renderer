@@ -29,6 +29,7 @@ public class TestRenderSgroupBrackets {
                         BufferedImage actual = renderer.createImage(c, 600);
                         String imageFileName =String.format("images/%sactual_%s.png", MolWitch.getModuleName(), n);
                         File imageFile = new File(imageFileName);
+                        imageFile.getParentFile().mkdirs();
                         ImageIO.write(actual, "PNG", imageFile);
                         System.out.println("wrote file to " + imageFile.getAbsolutePath());
                         return imageFile.exists();
