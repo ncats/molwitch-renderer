@@ -110,7 +110,7 @@ public class ColorPalette {
             for(Map.Entry<String, ARGBColor> e: atomColors.entrySet()){
                 atomMap.put(e.getKey(), e.getValue().asHex());
             }
-            map.put("atomColors", atomColors);
+            map.put("atomColors", atomMap);
         }
         if(!Objects.equals(STEREO_COLOR_KNOWN, stereoColorKnown)){
             map.put("stereoColorKnown", stereoColorKnown.asHex());

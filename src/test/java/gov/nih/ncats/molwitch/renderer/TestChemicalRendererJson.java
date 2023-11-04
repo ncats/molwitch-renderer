@@ -47,4 +47,23 @@ public class TestChemicalRendererJson {
         assertEquals(renderer.getBackgroundColorARGB(), sut.getBackgroundColorARGB());
         assertEquals(renderer.getBorderColorARGB(), sut.getBorderColorARGB());
     }
+    
+    @Test
+    public void testCopy() throws Exception{
+        ChemicalRenderer renderer = new ChemicalRenderer(RendererOptions.createUSPLike());
+        renderer.setShadowVisible(false);
+        renderer.setBackgroundColor(Color.red);
+
+        renderer.getOptions().getColorPalette().setAtomColor("S", new ARGBColor(45,45,67));
+        
+        ObjectMapper mapper = new ObjectMapper();
+        String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(renderer.getOptions());
+        
+        RendererOptions ropt= renderer.getOptions().copy();
+        String json2 = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(ropt);
+        
+        assertEquals(json,json2);
+        renderer = new ChemicalRenderer(ropt); //just checking if it can also instantiate        
+        assertNotNull(renderer);
+    }
 }
