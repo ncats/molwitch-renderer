@@ -60,10 +60,10 @@ public class RendererOptions {
 		 * which is often less jarring than the sudden sharp corners from bridgehead/chain wedges in other styles.
 		 *
 		 * <p>when set to {@code false} (default):</p>
-		 * <img src="./doc-files/wedge_join_off.png" />
+		 * <img src="./doc-files/wedge_join_off.png" alt="wedge icon">
 		 *
 		 * <p>when set to {@code true} :</p>
-		 * <img src="./doc-files/wedge_join_on.png"/>
+		 * <img src="./doc-files/wedge_join_on.png" alt="wedge icon">
 		 *
 		 */
 		DRAW_STEREO_WEDGE_JOIN(false, "PROP_KEY_DRAW_STEREO_WEDGE_JOIN"),
