@@ -18,15 +18,6 @@
 
 package gov.nih.ncats.molwitch.renderer;
 
-import gov.nih.ncats.molwitch.*;
-import gov.nih.ncats.molwitch.SGroup.SGroupBracket;
-import gov.nih.ncats.molwitch.SGroup.SGroupType;
-import gov.nih.ncats.molwitch.Bond.BondType;
-import gov.nih.ncats.molwitch.isotopes.NISTIsotopeFactory;
-import gov.nih.ncats.molwitch.renderer.Graphics2DParent.*;
-import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawOptions;
-import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawProperties;
-
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
@@ -46,16 +37,37 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import gov.nih.ncats.molwitch.Atom;
+import gov.nih.ncats.molwitch.AtomCoordinates;
+import gov.nih.ncats.molwitch.Bond;
+import gov.nih.ncats.molwitch.Bond.BondType;
+import gov.nih.ncats.molwitch.Bond.DoubleBondStereo;
+import gov.nih.ncats.molwitch.Chemical;
+import gov.nih.ncats.molwitch.Chirality;
+import gov.nih.ncats.molwitch.MolwitchException;
+import gov.nih.ncats.molwitch.SGroup;
+import gov.nih.ncats.molwitch.SGroup.SGroupBracket;
+import gov.nih.ncats.molwitch.SGroup.SGroupType;
+import gov.nih.ncats.molwitch.Stereocenter;
+import gov.nih.ncats.molwitch.isotopes.NISTIsotopeFactory;
+import gov.nih.ncats.molwitch.renderer.Graphics2DParent.AffineTransformParent;
+import gov.nih.ncats.molwitch.renderer.Graphics2DParent.GeneralPathParent;
+import gov.nih.ncats.molwitch.renderer.Graphics2DParent.GeomGenerator;
+import gov.nih.ncats.molwitch.renderer.Graphics2DParent.LineParent;
+import gov.nih.ncats.molwitch.renderer.Graphics2DParent.Point2DParent;
+import gov.nih.ncats.molwitch.renderer.Graphics2DParent.Rectangle2DParent;
+import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawOptions;
+import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawProperties;
 
 
 //import java.awt.image.BufferedImage;
@@ -68,6 +80,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	public static final ARGBColor transparent = new ARGBColor(0, 0, 0, 0);
 	private String protProperty = "AMINO_ACID_SEQUENCE";
 	private static Font defaultFont;
+	
+	private static float FONT_SIZE_LABEL_FUDGE = 0.7f;
+	
 
 	static {
 		try {
@@ -262,6 +277,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		
 		boolean wedgeJoin = displayParams.getDrawOption(DrawOptions.DRAW_STEREO_WEDGE_JOIN);
 		
+		boolean drawStereoBondLabels = displayParams.getDrawOption(DrawOptions.DRAW_STEREO_WEDGE_JOIN);
+		
 		
 				
 		boolean PROP_DASH_SPACING = displayParams.getDrawOption(DrawOptions.DRAW_CONSTANT_DASH_WIDTH);
@@ -273,6 +290,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		boolean drawTerminalCarbons = displayParams.getDrawOption(DrawOptions.DRAW_TERMINAL_CARBON);
 		boolean drawColorScheme = !displayParams.getDrawOption(DrawOptions.DRAW_GREYSCALE);
 		boolean drawStereoLabels = displayParams.getDrawOption(DrawOptions.DRAW_STEREO_LABELS);
+		boolean drawStereoLabelsEZ = displayParams.getDrawOption(DrawOptions.DRAW_STEREO_LABELS_EZ) && drawStereoLabels;
 		boolean stereoFromMap = displayParams.getDrawOption(DrawOptions.DRAW_STEREO_GIVEN_BY_MAP);
 		boolean highlightMapAtoms = displayParams.getDrawOption(DrawOptions.DRAW_HIGHLIGHT_MAPPED);
 		boolean highlightHalo = displayParams.getDrawOption(DrawOptions.DRAW_HIGHLIGHT_WITH_HALO);
@@ -557,7 +575,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		
 
 		float bondWidth = (float) (DEF_STROKE_PERCENT * resize * BONDAVG);
-		float braketFrac = 0.7f;
+		float braketFrac = FONT_SIZE_LABEL_FUDGE;
 		float braketWidth = (float) (DEF_STROKE_PERCENT * resize * BONDAVG * braketFrac);
 		BasicStroke solid = new BasicStroke(bondWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
 		BasicStroke solidHalo = new BasicStroke((float) (bondWidth + HALO_RADIUS_MULTIPLY * resize * BONDAVG),
@@ -599,7 +617,10 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				}
 			}else {
 				final List<Stereocenter> allStereocenters = c.getAllStereocenters();
-				stereoMap = allStereocenters.stream().filter(Stereocenter::isDefined).map(Stereocenter::getCenterAtom).filter(a -> a.getChirality() != null)
+				stereoMap = allStereocenters.stream()
+//						.filter(Stereocenter::isDefined)
+						.map(Stereocenter::getCenterAtom)
+						.filter(a -> a.getChirality() != null)
 					.collect(Collectors.toMap(Atom::getAtomIndexInParent, a -> a.getChirality()));
 			}
 
@@ -711,18 +732,18 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 							if (assumeStarRelative) {
 								attach2 = "(R*)";
 							}
-							if (!assumeRelative)
-								break;
-						case Unknown:
-						case Parity_Either:
-							//from TP: The big thing is that if the molecule is marked as racemic or (+/-) stereochemistry,
-							// //then it's definitely either R or S
-							if (Chemical.StereochemistryType.RACEMIC.equals(stereochemistryType) || Chemical.OpticalActivity.PLUS_MINUS.equals(opticalActivity)) {
+							if (assumeRelative) {
 								attach2 = "(RS)";
-								ncol = colorPalette.getStereoColorKnown();
-							} else {
-								attach2 = "(*)";
-								ncol = colorPalette.getStereoColorUnknown();
+							}
+							break;
+						case r:
+							attach2 = "(r)";
+							ncol = colorPalette.getStereoColorKnown();
+							if (assumeStarRelative) {
+								attach2 = "(r*)";
+							}
+							if (assumeRelative) {
+								attach2 = "(rs)";
 							}
 							break;
 						case S:
@@ -731,15 +752,25 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 							if (assumeStarRelative) {
 								attach2 = "(S*)";
 							}
-							if (!assumeRelative) {
-								break;
+							if (assumeRelative) {
+								attach2 = "(SR)";
 							}
-							attach2 = "(*)";
-							ncol = colorPalette.getStereoColorUnknown();
-							// case ChemicalAtom.STEREO_SR:
-							// attach2 = "(SR)";
-							// ncol = STEREO_COLOR_KNOWN;
-							// break;
+							break;
+						case s:
+							attach2 = "(s)";
+							ncol = colorPalette.getStereoColorKnown();
+							if (assumeStarRelative) {
+								attach2 = "(s*)";
+							}
+							if (assumeRelative) {
+								attach2 = "(sr)";
+							}
+							break;
+						case Unknown:
+						case Parity_Either:
+								attach2 = "(*)";
+								ncol = colorPalette.getStereoColorUnknown();
+							break;
 
 						default:
 					}
@@ -760,7 +791,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						}
 						forceDraw = true;
 						//System.out.printf("setting font to %.4f\n", (fsize * 0.7f));
-						g2.setFont(defaultFont.deriveFont(fsize * 0.7f));
+						g2.setFont(defaultFont.deriveFont(fsize * FONT_SIZE_LABEL_FUDGE));
 						fm = g2.getFontMetrics();
 					} else {
 						// should restrict full atom highlight for
@@ -777,7 +808,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						attachments.add(attach2);
 						// attachmentLOC.add(1|2|4|8);
 						attachmentLOC.add(-1);
-						attachmentSIZE.add(.7f);
+						attachmentSIZE.add(FONT_SIZE_LABEL_FUDGE);
 						if (stereoColoring) {
 							attachmentCOL.add(ncol);
 						} else {
@@ -1087,6 +1118,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			bp.DEF_NUM_DASH = DEF_NUM_DASH;
 			bp.bondWidth = bondWidth;
 			bp.DEF_SPLIT_RATIO = DEF_SPLIT_RATIO;
+			bp.fsize=fsize;
 			bp.DrawDashWedge = DrawDashWedge;
 			bp.drawLastDashLineOnNonSymbols = drawLastDashLineOnNonSymbols;
 			
@@ -1097,6 +1129,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			bp.wedgeJoin = wedgeJoin;
 			bp.solidREC = solidREC;
 			bp.maxWedgeWidth = maxW;
+			bp.drawStereoBondLabels=drawStereoLabelsEZ;
+			bp.colorPalette=colorPalette;
 
 			if (highlightHalo) {
 				bp.highlightHalo = true;
@@ -1317,7 +1351,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 		if(supsOpt.isPresent() || subs.isPresent()){
 			//System.out.printf("g2.setFont(defaultFont.deriveFont(fsize * 0.7f)); %.5f", (fsize * 0.7f));
-			g2.setFont(defaultFont.deriveFont(fsize * 0.7f));
+			g2.setFont(defaultFont.deriveFont(fsize * FONT_SIZE_LABEL_FUDGE));
 			fm = g2.getFontMetrics();
 
 			if(subs.isPresent()){
@@ -1410,6 +1444,23 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			GlyphVector gv = g2.getFont().createGlyphVector(g2.getFontRenderContext(), s.toCharArray());
 			Rectangle2D r2 = gv.getLogicalBounds();
 			g2.drawGlyphVector(gv, x, y);
+			return new Rectangle2D.Double(r2.getMinX() + x, r2.getMinY() + y, r2.getWidth(), r2.getHeight());
+			// r2=g2.getTransform().createTransformedShape(r2).getBounds2D();
+			// r2
+			// return r2;
+
+		} else {
+			g2.drawString(s, x, y);
+			return null;
+		}
+	}
+	
+	private static Rectangle2D getStringBounds(Graphics2DTemp g2, String s, float x, float y) {
+		boolean glyph = true;
+		if (glyph) {
+			GlyphVector gv = g2.getFont().createGlyphVector(g2.getFontRenderContext(), s.toCharArray());
+			Rectangle2D r2 = gv.getLogicalBounds();
+//			g2.drawGlyphVector(gv, x, y);
 			return new Rectangle2D.Double(r2.getMinX() + x, r2.getMinY() + y, r2.getWidth(), r2.getHeight());
 			// r2=g2.getTransform().createTransformedShape(r2).getBounds2D();
 			// r2
@@ -1539,6 +1590,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	}
 
 	private static class BondProps {
+		public ColorPalette colorPalette;
+		
+		
 		public double maxWedgeWidth;
 		float DEF_DBL_BOND_GAP;
 		float DEF_DBL_BOND_DISTANCE;
@@ -1546,6 +1600,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		float DEF_NUM_DASH;
 		float bondWidth;
 		float DEF_SPLIT_RATIO;
+		float fsize;
+		
 
 		boolean DrawDashWedge;
 		boolean PROP_DASH_SPACING;
@@ -1609,6 +1665,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 				float dxdbl = dx / 4.f;
 				float dydbl = dy / 4.f;
+				double inv1=1;
 
 				float[] doubleBPos = new float[2];
 				centerTransform.transform(xy, 5, doubleBPos, 0, 1);
@@ -1640,6 +1697,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					tx = dbcy[0];
 					dbcy[0] = dbcy[1];
 					dbcy[1] = tx;
+					inv1=-1;
 				}
 				float rat = DEF_DBL_BOND_DISTANCE * 2;
 				/*
@@ -1804,27 +1862,42 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				}
 				//TEMP testing ability to draw text
 				if(drawStereoBondLabels && cb.getBondType()== BondType.DOUBLE) {
-
-					String bondStereo =cb.getDoubleBondStereo().name();
-					String bsPieces[] = bondStereo.split("\\_");
-					FontMetrics metrics = g2.getFontMetrics();
-					int labelWidth = metrics.stringWidth(bsPieces[0]);
-					double x = Math.min(cb.getAtom1().getAtomCoordinates().getX(), cb.getAtom2().getAtomCoordinates().getX()) +
-							Math.abs( cb.getAtom1().getAtomCoordinates().getX()-cb.getAtom2().getAtomCoordinates().getX())/2;
-					System.out.printf("atom1 x %.2f atom2 x %.2f middle %.2f\n", cb.getAtom1().getAtomCoordinates().getX(),
-							cb.getAtom2().getAtomCoordinates().getX(), x);
-					double y = Math.min(cb.getAtom1().getAtomCoordinates().getY(), cb.getAtom2().getAtomCoordinates().getY()) + Math.abs( cb.getAtom1().getAtomCoordinates().getY()-cb.getAtom2().getAtomCoordinates().getY())/2;
-					System.out.printf("atom1 y %.2f atom2 y %.2f middle %.2f\n", cb.getAtom1().getAtomCoordinates().getY(),
-							cb.getAtom2().getAtomCoordinates().getY(), y);
-					float fudgeFactor=240;
-					float xPos= (float) (x- labelWidth +1.5* fudgeFactor);
-					float yPos = (float) (y + metrics.getHeight()/2 )+fudgeFactor;
-					System.out.printf("Going to draw string '%s' at %.2f, %.2f\n", bsPieces[0],
-							xPos, yPos);
-					ARGBColor colorBefore= g2.getARGBColor();
-					g2.setColor(new ARGBColor(0, 255, 0, 250));
-					drawString(g2, bsPieces[0], xPos, yPos);
-					g2.setColor(colorBefore);
+					DoubleBondStereo dbs=cb.getDoubleBondStereo();
+					if(dbs!=DoubleBondStereo.NONE) {
+						
+						String bondStereo =cb.getDoubleBondStereo().name();
+						
+						float xPos = .5f*(p1[0]+p2[0]);
+						float yPos = .5f*(p1[1]+p2[1]);
+						
+						
+						ARGBColor colorBefore= g2.getARGBColor();
+						if(dbs.isDefined()) {
+							g2.setColor(colorPalette.getStereoColorKnown());
+							bondStereo=bondStereo.split("\\_")[0];
+						}else {
+							g2.setColor(colorPalette.getStereoColorUnknown());
+							bondStereo="E/Z";
+						}
+						float invD=(float)inv1;
+						g2.setFont(defaultFont.deriveFont(Font.BOLD,fsize * FONT_SIZE_LABEL_FUDGE));
+						//get the rectangle that it would be drawn on
+						Rectangle2D bounds = getStringBounds(g2, bondStereo, 
+								xPos 
+								+ rat * invD* dydbl
+								, yPos 
+								- invD* rat * dxdbl
+								);
+						float centerSubtractX= (float) (bounds.getWidth())/2;						
+						float centerSubtractY= -(float) (bounds.getHeight())/2;
+						drawString(g2, bondStereo, 
+								xPos-centerSubtractX 
+								+ rat * invD* dydbl
+								, yPos-centerSubtractY
+								- invD* rat * dxdbl
+								);
+						g2.setColor(colorBefore);
+					}
 				}
 			}
 			
