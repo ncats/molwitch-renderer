@@ -26,6 +26,7 @@ import gov.nih.ncats.molwitch.isotopes.NISTIsotopeFactory;
 import gov.nih.ncats.molwitch.renderer.Graphics2DParent.*;
 import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawOptions;
 import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawProperties;
+import gov.nih.ncats.molwitch.renderer.utils.MathUtilities;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -429,7 +430,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 									switch (b.getBondType()) {
 									case DOUBLE:
 									case AROMATIC:
-										weight *= 1.75;
+										//weight *= 1.75;  for security issue 17 January 2024
+										weight = MathUtilities.safeScaleInt(weight, 1.75f);
 										break;
 									default:
 										break;
@@ -437,8 +439,10 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 								}
 							}
 							AtomCoordinates coords = can.getAtomCoordinates();
-							nx += coords.getX() * weight;
-							ny += coords.getY() * weight;
+							//nx += coords.getX() * weight; for security issue 17 January 2024
+							nx = MathUtilities.safeFloatAdd(nx, MathUtilities.safeFloatMultiply(coords.getX(), weight));
+							//ny += coords.getY() * weight; for security issue 17 January 2024
+							ny += MathUtilities.safeFloatAdd(ny, MathUtilities.safeFloatMultiply (coords.getY(), weight));
 							bondCount += weight;
 						}
 					}
@@ -846,8 +850,10 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			if (drawHalo) {
 				g2.setColor(col);
 				float prad = radius;
-				radius *= HALO_RADIUS_FUDGE;
+				//radius *= HALO_RADIUS_FUDGE; for security issue 17 January 2024
+				radius = MathUtilities.safeFloatMultiply(radius, HALO_RADIUS_FUDGE);
 				radius += HALO_RADIUS_MULTIPLY * resize * BONDAVG;
+				//radius = MathUtilities.safeFloatAdd(radius, MathU)
 				g2.fillP(ggen.makeEllipse(p[0] - radius, p[1] - radius, radius * 2, radius * 2));
 				radius = prad;
 				hcol = col;
@@ -1621,7 +1627,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				// center of double bond
 				float norm = DEF_DBL_BOND_GAP * resize * BONDAVG / (float) Math.sqrt((dxdbl * dxdbl + dydbl * dydbl));
 				if ((int) xy[4] == -1 || (centerAllDoubleBonds && (int) xy[4] == 2)) {
-					norm *= .5;
+					//norm *= .5;  for security issue 17 January 2024
+					norm = MathUtilities.safeFloatMultiply(norm, 0.5f);
 					xy[4] = -1;
 				}
 				float dbcx[] = new float[2]; // double bond center x
