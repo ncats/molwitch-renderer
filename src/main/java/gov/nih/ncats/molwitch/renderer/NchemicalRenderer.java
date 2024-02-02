@@ -385,7 +385,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			Atom[] ca = new Atom[] { cb.getAtom1(), cb.getAtom2() };
 			
 			double length = Math.sqrt(ca[0].getAtomCoordinates().distanceSquaredTo(ca[1].getAtomCoordinates()));
-			BONDAVG += length;
+			//BONDAVG += length;
+			BONDAVG = MathUtilities.safeFloatAdd(BONDAVG, length);
 			float nx = 0;
 			float ny = 0;
 			int bondType = cb.getBondType().getOrder();
@@ -852,8 +853,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				float prad = radius;
 				//radius *= HALO_RADIUS_FUDGE; for security issue 17 January 2024
 				radius = MathUtilities.safeFloatMultiply(radius, HALO_RADIUS_FUDGE);
-				radius += HALO_RADIUS_MULTIPLY * resize * BONDAVG;
-				//radius = MathUtilities.safeFloatAdd(radius, MathU)
+				//radius += HALO_RADIUS_MULTIPLY * resize * BONDAVG;
+				float partial = MathUtilities.safeFloatMultiply(HALO_RADIUS_MULTIPLY, resize, BONDAVG);
+				radius = MathUtilities.safeFloatAdd(radius, partial);
 				g2.fillP(ggen.makeEllipse(p[0] - radius, p[1] - radius, radius * 2, radius * 2));
 				radius = prad;
 				hcol = col;

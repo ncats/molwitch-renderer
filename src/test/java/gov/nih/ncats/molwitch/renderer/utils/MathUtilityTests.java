@@ -16,6 +16,15 @@ public class MathUtilityTests {
     }
 
     @Test
+    public void testSafeAddEasy2() {
+        float number1 = 34;
+        double number2 = 10000;
+        float expectedSum= 34+10000;
+        float actualSum = MathUtilities.safeFloatAdd(number1, number2);
+        assertEquals(expectedSum, actualSum,0.001);
+    }
+
+    @Test
     public void testSafeAdd0() {
         float number1 = 34;
         float number2 = 0;
@@ -41,6 +50,17 @@ public class MathUtilityTests {
         float actualSum = MathUtilities.safeFloatMultiply(number1,number2);
         assertEquals(expectedProduct, actualSum, 0.001);
     }
+
+    @Test
+    public void testSafeMultiplyEasyDouble3() {
+        float number1 = 34;
+        double number2 = 100;
+        float number3 = 10;
+        float expectedProduct= 34*100*10;
+        float actualSum = MathUtilities.safeFloatMultiply(number1,number2, number3);
+        assertEquals(expectedProduct, actualSum, 0.001);
+    }
+
     @Test
     public void testSafeMultiplyByZero() {
         float number1 = 34;
@@ -66,7 +86,7 @@ public class MathUtilityTests {
     @Test
     public void testSafeAddTooSmall() {
         float number1 = -34;
-        float number2 = Float.MIN_VALUE;
+        float number2 = -1*Float.MAX_VALUE;
         ArithmeticException mathException= null;
         try {
             float actualSum = MathUtilities.safeFloatAdd(number1,number2);
@@ -108,24 +128,30 @@ public class MathUtilityTests {
     public void testSafeScaleInt1() {
         int counter = 4;
         float scaleFactor = 0.5f;
+        int expected = counter;
+        expected *= scaleFactor;
         int scaled = MathUtilities.safeScaleInt(counter, scaleFactor);
-        assertEquals(2, scaled);
+        assertEquals(expected, scaled);
     }
 
     @Test
     public void testSafeScaleInt2() {
         int counter = 5;
         float scaleFactor = 0.5f;
+        int expected = counter;
+        expected  *= scaleFactor;
         int scaled = MathUtilities.safeScaleInt(counter, scaleFactor);
-        assertEquals(2, scaled);
+        assertEquals(expected, scaled);
     }
 
     @Test
     public void testSafeScaleInt3() {
         int counter = -5;
         float scaleFactor = 0.5f;
+        int expected =counter;
+        expected *= scaleFactor;
         int scaled = MathUtilities.safeScaleInt(counter, scaleFactor);
-        assertEquals(-2, scaled);
+        assertEquals(expected, scaled);
     }
 
     @Test

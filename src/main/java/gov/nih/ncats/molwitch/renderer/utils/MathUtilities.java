@@ -13,12 +13,7 @@ public class MathUtilities {
             return 0;
         }
         double product = factor1 * factor2;
-        if( product > Float.MAX_VALUE || product < Float.MIN_VALUE) {
-            String msg = "Error multiplying " + factor1 + " by " + factor2 + "(result is too large or too small)";
-            logger.severe( msg);
-            throw new ArithmeticException(msg);
-        }
-        return (float)product;
+        return checkDoubleResult(product);
     }
 
     public static float safeFloatMultiply(double factor1, double factor2) {
@@ -27,12 +22,23 @@ public class MathUtilities {
             return 0;
         }
         double product = factor1 * factor2;
-        if( product > Float.MAX_VALUE || product < Float.MIN_VALUE) {
+        return checkDoubleResult(product);
+    }
+
+    public static float safeFloatMultiply(float factor1, double factor2, float factor3) {
+        //special case: multiplying by zero yields zero
+        if(factor1 == 0 || factor2 == 0 || factor3 == 0) {
+            return 0;
+        }
+        double product = factor1 * factor2;
+        if( product > Float.MAX_VALUE || product < (-1*Float.MIN_VALUE)) {
             String msg = "Error multiplying " + factor1 + " by " + factor2 + "(result is too large or too small)";
             logger.severe( msg);
             throw new ArithmeticException(msg);
         }
-        return (float)product;
+
+        double product2 = product * factor3;
+        return checkDoubleResult(product2);
     }
     public static float safeFloatAdd(float addend1, float addend2) {
         if( (addend1 == Float.MAX_VALUE && addend2 > 0 )|| (addend2 == Float.MAX_VALUE && addend1 > 0)) {
@@ -41,19 +47,31 @@ public class MathUtilities {
             throw new ArithmeticException(msg);
         }
 
-        if( (addend1 == Float.MIN_VALUE && addend2 < 0 )|| (addend2 == Float.MIN_VALUE && addend1 < 0)) {
+        if( (addend1 == (-1 *Float.MAX_VALUE) && addend2 < 0 )|| (addend2 == (-1 * Float.MAX_VALUE) && addend1 < 0)) {
             String msg = "Error adding " + addend1 + " to " + addend2 + "(one addend is too small)";
             logger.severe( msg);
             throw new ArithmeticException(msg);
         }
 
         double sum = addend1 + addend2;
-        if( sum > Float.MAX_VALUE || sum < Float.MIN_VALUE) {
-            String msg = "Error adding " + addend1 + " to " + addend2 + "(result is too large or too small)";
+        return checkDoubleResult(sum);
+    }
+
+    public static float safeFloatAdd(float addend1, double addend2) {
+        if( (addend1 == Float.MAX_VALUE && addend2 > 0 )|| (addend2 == Float.MAX_VALUE && addend1 > 0)) {
+            String msg = "Error adding " + addend1 + " to " + addend2 + "(one addend is too large)";
             logger.severe( msg);
             throw new ArithmeticException(msg);
         }
-        return (float)sum;
+
+        if( (addend1 ==(-1 * Float.MAX_VALUE) && addend2 < 0 )|| (addend2 == (-1 * Float.MAX_VALUE) && addend1 < 0)) {
+            String msg = "Error adding " + addend1 + " to " + addend2 + "(one addend is too small)";
+            logger.severe( msg);
+            throw new ArithmeticException(msg);
+        }
+
+        double sum = addend1 + addend2;
+        return checkDoubleResult(sum);
     }
 
     public static int safeScaleInt(int value, float scale) {
@@ -67,6 +85,23 @@ public class MathUtilities {
             logger.severe( msg);
             throw new ArithmeticException(msg);
         }
-        return (int) Math.floor(initialResult);
+        if( value > 0) {
+            return (int) Math.floor(initialResult);
+        }
+        return (int) Math.round(initialResult);
     }
+
+    private static float checkDoubleResult(double result) {
+        if( result > Float.MAX_VALUE ) {
+            String msg = "Error performing operation (result [" + result + "] is too large)";
+            logger.severe(msg);
+            throw new ArithmeticException(msg);
+        } else if( result < (-1 *Float.MAX_VALUE)) {
+            String msg = "Error performing operation (result [" + result + "] is too small)";;
+            logger.severe(msg);
+            throw new ArithmeticException(msg);
+        }
+        return (float)result;
+    }
+
 }
