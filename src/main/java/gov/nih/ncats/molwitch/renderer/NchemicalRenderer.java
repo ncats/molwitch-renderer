@@ -1,7 +1,7 @@
 /*
  * NCATS-MOLWITCH-RENDERER
  *
- * Copyright 2023 NIH/NCATS
+ * Copyright 2024 NIH/NCATS
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import gov.nih.ncats.molwitch.isotopes.NISTIsotopeFactory;
 import gov.nih.ncats.molwitch.renderer.Graphics2DParent.*;
 import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawOptions;
 import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawProperties;
+import gov.nih.ncats.molwitch.renderer.utils.MathUtilities;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -384,7 +385,16 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			Atom[] ca = new Atom[] { cb.getAtom1(), cb.getAtom2() };
 			
 			double length = Math.sqrt(ca[0].getAtomCoordinates().distanceSquaredTo(ca[1].getAtomCoordinates()));
-			BONDAVG += length;
+			//BONDAVG += length;
+			//Note: the 'oldWay' calculations in this class, currently commented out, were used to test the
+			// computations performed -- oldWay was the calculation as performed before an update to address
+			// security issue related to compound assignment statements with operands of different numeric types.
+			// in case of doubt, uncomment the oldWay lines and run rendering tests.
+//			float oldWay = BONDAVG;
+//			oldWay += length;
+			BONDAVG = MathUtilities.safeFloatAdd(BONDAVG, length);
+//			System.out.printf("oldWay: %.2f; new: %.2f\n", oldWay, BONDAVG);
+//			assert Math.abs(oldWay-BONDAVG) < (0.1 * oldWay);
 			float nx = 0;
 			float ny = 0;
 			int bondType = cb.getBondType().getOrder();
@@ -429,7 +439,12 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 									switch (b.getBondType()) {
 									case DOUBLE:
 									case AROMATIC:
-										weight *= 1.75;
+										//weight *= 1.75;  for security issue 17 January 2024
+//										int oldWay2 = weight;
+//										oldWay2 *= 1.75;
+										weight = MathUtilities.safeScaleInt(weight, 1.75f);
+//										System.out.printf("oldWay: %d; new: %d\n", oldWay2, weight);
+//										assert Math.abs(oldWay2-weight) < (0.1 * oldWay2);
 										break;
 									default:
 										break;
@@ -437,8 +452,20 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 								}
 							}
 							AtomCoordinates coords = can.getAtomCoordinates();
-							nx += coords.getX() * weight;
-							ny += coords.getY() * weight;
+							//nx += coords.getX() * weight;// for security issue 17 January 2024
+//							float oldWay3 = nx;
+//							oldWay3+= coords.getX() * weight;
+							nx = MathUtilities.safeFloatAdd(nx, MathUtilities.safeFloatMultiply(coords.getX(), weight));
+//							System.out.printf("oldWay3: %.2f; new: %.2f\n", oldWay3, nx);
+//							assert Math.abs(oldWay3-nx) < (0.1 * oldWay3);
+
+							//ny += coords.getY() * weight;// for security issue 17 January 2024
+
+//							float oldWay4 = ny;
+//							oldWay4+=coords.getY() * weight;
+							ny =MathUtilities.safeFloatAdd(ny, MathUtilities.safeFloatMultiply (coords.getY(), weight));
+//							System.out.printf("oldWay4: %.2f; new: %.2f\n", oldWay4, ny);
+//							assert Math.abs(oldWay4-ny) < (0.1 * Math.abs(oldWay4));
 							bondCount += weight;
 						}
 					}
@@ -846,8 +873,19 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			if (drawHalo) {
 				g2.setColor(col);
 				float prad = radius;
-				radius *= HALO_RADIUS_FUDGE;
-				radius += HALO_RADIUS_MULTIPLY * resize * BONDAVG;
+				//radius *= HALO_RADIUS_FUDGE;// for security issue 17 January 2024
+//				float oldWay5 = radius;
+//				oldWay5*= HALO_RADIUS_FUDGE;
+				radius = MathUtilities.safeFloatMultiply(radius, HALO_RADIUS_FUDGE);
+//				System.out.printf("oldWay: %.2f; new: %.2f\n", oldWay5, radius);
+//				assert Math.abs(oldWay5-radius) < (0.1 * oldWay5);
+
+				//radius += HALO_RADIUS_MULTIPLY * resize * BONDAVG;
+//				float oldWay6 = radius;
+//				oldWay6+= HALO_RADIUS_MULTIPLY * resize * BONDAVG;
+				radius = MathUtilities.safeFloatAdd(radius, MathUtilities.safeFloatMultiply(HALO_RADIUS_MULTIPLY, resize, BONDAVG));
+//				System.out.printf("oldWay6: %.2f; new: %.2f\n", oldWay6, radius);
+//				assert Math.abs(oldWay6-radius) < (0.1 * oldWay6);
 				g2.fillP(ggen.makeEllipse(p[0] - radius, p[1] - radius, radius * 2, radius * 2));
 				radius = prad;
 				hcol = col;
@@ -1621,7 +1659,12 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				// center of double bond
 				float norm = DEF_DBL_BOND_GAP * resize * BONDAVG / (float) Math.sqrt((dxdbl * dxdbl + dydbl * dydbl));
 				if ((int) xy[4] == -1 || (centerAllDoubleBonds && (int) xy[4] == 2)) {
-					norm *= .5;
+					//norm *= .5;//  for security issue 17 January 2024
+//					float oldWay6 = norm;
+//					oldWay6 *= .5;
+					norm = MathUtilities.safeFloatMultiply(norm, 0.5f);
+//					System.out.printf("oldWay6: %.2f; new: %.2f\n", oldWay6, norm);
+//					assert Math.abs(oldWay6-norm) < (0.1 * oldWay6);
 					xy[4] = -1;
 				}
 				float dbcx[] = new float[2]; // double bond center x
