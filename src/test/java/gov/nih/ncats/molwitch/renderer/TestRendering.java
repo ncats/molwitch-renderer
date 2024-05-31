@@ -374,20 +374,22 @@ public class TestRendering {
 
     @Test
     public void renderSingleAtom0Valence() throws Exception{
+        String folder ="images\\";
         ChemicalRenderer renderer = new ChemicalRenderer();
         String name = "4XYU5U00C4";
-        Chemical c = Chemical.parseMol(new File(getClass().getResource("/" + name + ".mol").getFile()));
-        File renderedImageFile = new File(MolWitch.getModuleName() +"_" + name + ".png");
+        Chemical c = Chemical.parseMol(new File(getClass().getResource( "/" + name + ".mol").getFile()));
+        File renderedImageFile = new File(folder + "/" + MolWitch.getModuleName() +"_" + name + ".png");
         ImageIO.write(renderer.createImage(c, 600), "PNG", renderedImageFile);
         Assert.assertTrue(renderedImageFile.length()> 4000);
     }
 
     @Test
     public void renderSingleAtomNoValence() throws Exception{
+        String folder ="images\\";
         ChemicalRenderer renderer = new ChemicalRenderer();
         String name = "4XYU5U00C4_no_valence";
-        Chemical c = Chemical.parseMol(new File(getClass().getResource("/" + name + ".mol").getFile()));
-        File renderedImageFile =new File(MolWitch.getModuleName() +"_" + name + ".png");
+        Chemical c = Chemical.parseMol(new File(getClass().getResource(  "/" + name + ".mol").getFile()));
+        File renderedImageFile =new File(folder + MolWitch.getModuleName() +"_" + name + ".png");
         ImageIO.write(renderer.createImage(c, 600), "PNG", renderedImageFile);
         Assert.assertTrue(renderedImageFile.length()> 4000);
     }
