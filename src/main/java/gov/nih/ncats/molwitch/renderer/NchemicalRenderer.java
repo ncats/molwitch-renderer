@@ -936,6 +936,10 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				}
 			}
 
+			//MM experiment 30 May 2024
+			if(ca.getBonds().size()==0) {
+				forceDraw = true;
+			}
 			if (!attatch.equals("")) {
 				attachments.add(attatch);
 				if (ca.getBondCount() == 0) {
