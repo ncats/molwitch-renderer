@@ -24,8 +24,7 @@
 
     <groupId>gov.nih.ncats</groupId>
     <artifactId>molwitch-renderer</artifactId>
-    <version>1.0.17</version>
-
+    <version>1.0.18</version>
     <name>Molwitch Renderer</name>
 
     <url>https://github.com/ncats/molwitch-renderer</url>
@@ -93,7 +92,7 @@
        <dependency>
            <groupId>gov.nih.ncats</groupId>
            <artifactId>molwitch</artifactId>
-           <version>0.6.5</version>
+           <version>0.6.9</version>
        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -116,7 +115,7 @@
        <dependency>
         <groupId>gov.nih.ncats</groupId>
         <artifactId>molwitch-cdk</artifactId>
-        <version>1.0.14</version>
+        <version>1.0.21</version>
         <scope>test</scope>
         </dependency>
         <dependency>
