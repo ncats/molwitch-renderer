@@ -25,7 +25,6 @@
     <groupId>gov.nih.ncats</groupId>
     <artifactId>molwitch-renderer</artifactId>
     <version>1.0.18</version>
-
     <name>Molwitch Renderer</name>
 
     <url>https://github.com/ncats/molwitch-renderer</url>
