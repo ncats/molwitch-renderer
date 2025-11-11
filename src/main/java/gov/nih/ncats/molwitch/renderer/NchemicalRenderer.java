@@ -28,15 +28,10 @@ import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawOptions;
 import gov.nih.ncats.molwitch.renderer.RendererOptions.DrawProperties;
 import gov.nih.ncats.molwitch.renderer.utils.MathUtilities;
 
-import java.awt.BasicStroke;
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.Stroke;
+import java.awt.*;
 import java.awt.font.GlyphVector;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -52,14 +47,12 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 
-//import java.awt.image.BufferedImage;
 /**
  * 
  * @author peryeata A reference implementation of the ChemicalRenderer.
@@ -69,6 +62,18 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	public static final ARGBColor transparent = new ARGBColor(0, 0, 0, 0);
 	private String protProperty = "AMINO_ACID_SEQUENCE";
 	private static Font defaultFont;
+
+	public void setBracketPositioningFactor(Double bracketPositioningFactor) {
+		this.bracketPositioningFactor = bracketPositioningFactor;
+	}
+
+	private Double bracketPositioningFactor = 0.2;
+
+	public void setMoleculeWidthFactorDenominator(Double moleculeWidthFactorDenominator) {
+		this.moleculeWidthFactorDenominator = moleculeWidthFactorDenominator;
+	}
+
+	private Double moleculeWidthFactorDenominator = 10.0;
 
 	static {
 		try {
@@ -683,19 +688,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				sm = this.getRGroupText(rGroupIndex.getAsInt());
 			}
 
-			/*
-			 * //A is query atom means "any?" //mol file standard can alias the atom //is
-			 * list is for query atoms if (ca.getSymbol().equals("A") &&
-			 * ca.getAlias().equals("A")) { sm = "*"; } ColorParent col = drawColor;
-			 * ColorParent hcol = transparent; List<String> attachments = new
-			 * ArrayList<String>(); List<Integer> attachmentLOC = new ArrayList<Integer>();
-			 * List<Float> attachmentSIZE = new ArrayList<Float>(); List<ColorParent>
-			 * attachmentCOL = new ArrayList<ColorParent>(); if(ca.isList()){ int[]
-			 * l=ca.getAtomList(); if(l!=null){ String at="["; for(int i=0;i<l.length;i++){
-			 * if(i>0){ at+=","; } at+=Chemical.atomSymbols[l[i]-1]; } at+="]";
-			 * attachments.add(at); attachmentLOC.add(1 | 2 | 4 | 8);
-			 * attachmentSIZE.add(0.4f); attachmentCOL.add(col); } }
-			 */
 			if (highlightMapAtoms) {
 				col = drawColor;
 //				System.out.println("hightlight map atoms = " + highlightMapAtoms);
@@ -940,6 +932,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			if(ca.getBonds().size()==0) {
 				forceDraw = true;
 			}
+
 			if (!attatch.equals("")) {
 				attachments.add(attatch);
 				if (ca.getBondCount() == 0) {
@@ -1092,8 +1085,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					DisplayLabel dl = new DisplayLabel(sm, g2.getFont(), p[0] - w, p[1] + h, drawColor);
 					toAddLabelsD.add(dl);
 					dl.atomGroup = ca;
-					// toAddLabels.add(sm);
-					// toAddLabelsPos.add(new float[] { p[0] - w, p[1] + h });
 					if (highlighted && drawRadius) {
 						dl.c = drawColor;
 					} else {
@@ -1227,7 +1218,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 			}
 			for(SGroup sgroup: trustedSgroupBrackets){
-				Rectangle2D.Float rect = computeBracketCoordsFor(sgroup, 0);
+				Rectangle2D.Float rect = computeBracketCoordsFor(sgroup, 0, c);
 				if(rect == null){
 					continue;
 				}
@@ -1235,16 +1226,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 			}
 
-			/*for(SGroup sgroup: untrustedSgroupBrackets){
-				Rectangle2D.Float rect = computeBracketCoordsFor(sgroup, bondWidth);
-				if(rect == null){
-					continue;
-				}
-				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect);
-
-			}*/
 			for(SGroup sgroup: untrustedSgroupBrackets){
-				Rectangle2D.Float rect = computeBracketCoordsFor(sgroup, BONDAVG);
+				Rectangle2D.Float rect = computeBracketCoordsFor(sgroup, BONDAVG, c);
 				if(rect == null){
 					continue;
 				}
@@ -1257,11 +1240,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		
 		realBounds = g2.getBounds().orElse(null);
 			if(realBounds==null)break;
-
-/*
-			System.out.printf("realBounds.getX(): %.3f, realBounds.getY(): %.3f, realBounds.getWidth(): %.3f, realBounds.getHeight(): %.3f\n",
-				realBounds.getX(), realBounds.getY(), realBounds.getWidth(), realBounds.getHeight());
-*/
 
 			double minAtomX =Double.POSITIVE_INFINITY;
 			double maxAtomX =Double.NEGATIVE_INFINITY;
@@ -1375,8 +1353,11 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		}
 	}
 
-	private static Rectangle2D.Float computeBracketCoordsFor(SGroup cg, double bondWidth){
+	private Rectangle2D.Float computeBracketCoordsFor(SGroup cg, double bondWidth, Chemical chemical){
+		Point2D.Double ranges = getBounds(chemical);
 		Rectangle2D rt;
+		double padding = ranges.x/10.0 * 0.95;
+		System.out.printf("calculated padding %.2f\n", padding);
 		if(cg.bracketsSupported()){
 			
 			//framework implementation supports brackets so use those
@@ -1384,14 +1365,79 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				return null;
 			}
 			if(cg.bracketsTrusted()) {
+				Double[] lowestBracketX = new Double[1];
+				lowestBracketX[0]	= Double.POSITIVE_INFINITY;
 				List<AtomCoordinates> coords = new ArrayList<>(4);
 				for(SGroupBracket b: cg.getBrackets()){
 					coords.add(b.getPoint1());
-					
+					if( b.getPoint1().getX() < lowestBracketX[0]){
+						lowestBracketX[0] = b.getPoint1().getX();
+					}
 					coords.add(b.getPoint2());
-					
+					if( b.getPoint2().getX() < lowestBracketX[0]){
+						lowestBracketX[0] = b.getPoint2().getX();
+					}
 				}
-	//			System.out.println("bracket cords = " + coords);
+				Double[] totalX =new Double[1];
+				totalX[0] = 0.0;
+				cg.getAtoms().forEach(a->{
+					totalX[0] += a.getAtomCoordinates().getX();
+				});
+				double averageX = totalX[0] / cg.getAtoms().count();
+				//System.out.println("average X: " + averageX);
+
+				cg.getAtoms().forEach(a->{
+					Double x = null;
+					//use attachments as an estimate of how much padding the atom needs on the left and the right.
+					AttachmentInfo attachmentInfo=  computeAttachments(a);
+					List<String> attachedText= attachmentInfo.getAttachments();
+					List<Integer> attachmentPositions = attachmentInfo.getAttachmentLOC();
+					int charsLeft = 0;
+					int charsRight = 0;
+					for(int i = 0; i < attachedText.size(); i++) {
+						if(attachmentPositions.get(i) == 1){
+							charsRight += attachedText.get(i).length();
+						} else if( attachmentPositions.get(i) == 4) {
+							charsLeft += attachedText.get(i).length();
+						}
+					}
+					System.out.printf("figuring %d chars to the left and %d to the right\n", charsLeft, charsRight);
+					double perChar = bracketPositioningFactor * (ranges.x/moleculeWidthFactorDenominator);
+					//see how we draw H ???????????????????
+					double currentPaddingLeft = charsLeft * perChar;
+					double currentPaddingRight = charsRight * perChar;
+					if( currentPaddingRight > 0 ) {
+						x = a.getAtomCoordinates().getX() + currentPaddingRight;
+						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY());
+						coords.add(newCoords);
+					}
+					if( currentPaddingLeft > 0) {
+						x = a.getAtomCoordinates().getX() - currentPaddingLeft;
+						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY());
+						coords.add(newCoords);
+					}
+					/*if(a.getAtomCoordinates().getX() < averageX) {
+						x = a.getAtomCoordinates().getX() - padding;
+					} else if(a.getAtomCoordinates().getX() > averageX ) {
+						x = a.getAtomCoordinates().getX() + 0.75*padding;
+					}
+					double y = a.getAtomCoordinates().getY();
+					*//*String logMessage = String.format("atom symbol %s, H count %d, X %.2f Y %.2f; new X: %.2f",
+							a.getSymbol(), a.getImplicitHCount(), a.getAtomCoordinates().getX(), a.getAtomCoordinates().getY(), x);
+					System.out.println(logMessage);*//*
+					if( x == null) {
+						double x1 = a.getAtomCoordinates().getX() - padding;
+						AtomCoordinates newCoords1 = AtomCoordinates.valueOf(x1, y);
+						coords.add(newCoords1);
+						double x2 = a.getAtomCoordinates().getX() + 0.75*padding;
+						AtomCoordinates newCoords2 = AtomCoordinates.valueOf(x2, y);
+						coords.add(newCoords2);
+					} else {
+						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, y);
+						coords.add(newCoords);
+					}*/
+				});
+
 				rt =  BoundingBox.computePaddedBoundingBoxForCoordinates(coords, 0);
 				/*System.out.printf("bounding box. x = %.3f; y = %.3f; width = %.3f; height = %.3f\n",
 						rt.getX(), rt.getY(), rt.getWidth(), rt.getHeight());*/
@@ -2633,4 +2679,298 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	}
 
 
+	private static Point2D.Double getBounds(Chemical c) {
+		double minAtomX =Double.POSITIVE_INFINITY;
+		double maxAtomX =Double.NEGATIVE_INFINITY;
+		double minAtomY =Double.POSITIVE_INFINITY;
+		double maxAtomY =Double.NEGATIVE_INFINITY;
+
+		for( Atom  at : c.getAtoms()){
+			if( at.getAtomCoordinates().getX() > maxAtomX) {
+				maxAtomX=at.getAtomCoordinates().getX();
+			}
+			if( at.getAtomCoordinates().getX() < minAtomX) {
+				minAtomX=at.getAtomCoordinates().getX();
+			}
+			if( at.getAtomCoordinates().getY() > maxAtomY) {
+				maxAtomY=at.getAtomCoordinates().getY();
+			}
+			if( at.getAtomCoordinates().getY() < minAtomY) {
+				minAtomY=at.getAtomCoordinates().getY();
+			}
+		}
+		double xAtomRange = maxAtomX-minAtomX;
+		double yAtomRange = maxAtomY-minAtomY;
+		return new Point2D.Double(xAtomRange, yAtomRange);
+	}
+
+	private AttachmentInfo computeAttachments(Atom ca) {
+		List<String> attachments = new ArrayList<String>();
+		List<Integer> attachmentLOC = new ArrayList<Integer>();
+		List<Float> attachmentSIZE = new ArrayList<Float>();
+		List<ARGBColor> attachmentCOL = new ArrayList<>();
+
+		boolean drawHydrogens = true;
+		boolean forceDraw = false;
+		boolean highlighted = false;
+		boolean fakeAtom = false;
+		boolean isCarbon = "C".equals(ca.getSymbol());
+		String sm = ca.getAlias().orElse(ca.getSymbol());
+		if (sm==null || !sm.equals(ca.getSymbol())) {
+			fakeAtom = true;
+			if(sm==null && ca.isQueryAtom()){
+				sm="*";
+			}
+		}
+
+		// have to make a normal if statement
+		// because can't set effectively final variable sm
+		// in a lambda
+		OptionalInt rGroupIndex = ca.getRGroupIndex();
+
+		if (rGroupIndex.isPresent()) {
+			sm = this.getRGroupText(rGroupIndex.getAsInt());
+		}
+		boolean drawStereoLabels = displayParams.getDrawOption(DrawOptions.DRAW_STEREO_LABELS);
+		boolean forceStereomono = displayParams.getDrawOption(DrawOptions.DRAW_STEREO_FORCE_MONOCHROMATIC);
+		boolean drawStereoParentheses = displayParams.getDrawOption(DrawOptions.DRAW_STEREO_LABELS_PARENTHESES);
+		boolean stereoReplace = displayParams.getDrawOption(DrawOptions.DRAW_STEREO_LABELS_AS_ATOMS);
+		boolean highlightShowAtom = displayParams.getDrawOption(DrawOptions.DRAW_HIGHLIGHT_SHOW_ATOM);
+		boolean drawTerminalCarbons = displayParams.getDrawOption(DrawOptions.DRAW_TERMINAL_CARBON);
+		boolean drawCarbon = displayParams.getDrawOption(DrawOptions.DRAW_CARBON);
+		boolean drawTerminalHydrogens = displayParams.getDrawOption(DrawOptions.DRAW_IMPLICIT_HYDROGEN);
+		boolean drawSymbols = displayParams.getDrawOption(DrawOptions.DRAW_SYMBOLS);
+		boolean drawAlleneCarbon = true;
+		boolean showMappedNumbers = displayParams.getDrawOption(DrawOptions.DRAW_SHOW_MAPPED);
+		final float HALO_RADIUS_MULTIPLY = .20f;
+		final float HALO_RADIUS_FUDGE = .5f;
+		final ColorPalette colorPalette = this.displayParams.getColorPalette();
+		AffineTransformParent centerTransform = ggen.makeAffineTransform();
+		boolean forceHalo = false;
+		ARGBColor drawColor = colorPalette.getAtomColor("C");
+		ARGBColor col = drawColor;
+		boolean isStereo = false;
+		if (drawStereoLabels) {
+			if (forceStereomono) {
+				col = drawColor;
+			}
+
+			String attach2 = null;
+			ARGBColor ncol = col;
+			boolean stereoColoring = true;
+			isStereo = true;
+
+			if (attach2 != null) {
+				if (!drawStereoParentheses) {
+					attach2 = attach2.replace("(", "").replace(")", "");
+				}
+				if (stereoReplace) {
+					if (stereoColoring) {
+						col = ncol;
+					}
+					if ("C".equals(sm)) {
+						sm = attach2;
+					} else {
+						sm = sm + attach2;
+					}
+					forceDraw = true;
+					//System.out.printf("setting font to %.4f\n", (fsize * 0.7f));
+				} else {
+					// should restrict full atom highlight for
+					// small images
+					if (stereoColoring) {
+						if (highlightShowAtom) {
+							forceDraw = true;
+						}
+						highlighted = true;
+
+						col = ncol.withAlpha( 55);
+						forceHalo = true;
+					}
+					attachments.add(attach2);
+					// attachmentLOC.add(1|2|4|8);
+					attachmentLOC.add(-1);
+					attachmentSIZE.add(.7f);
+					if (stereoColoring) {
+						attachmentCOL.add(ncol);
+					} else {
+						attachmentCOL.add(col);
+					}
+				}
+			}
+		}
+		if(drawTerminalCarbons){
+			if (drawCarbon) {
+				drawHydrogens = true;
+			} else if (isCarbon) {
+				if ((forceDraw && !isStereo) || ca.getBondCount() < 2 || ca.getCharge() != 0 || ca.getRadical() != 0
+						|| ca.isIsotope()) {
+					drawHydrogens = true;
+				} else {
+					drawHydrogens = false;
+				}
+			}
+			if (drawHydrogens) {
+				drawHydrogens = drawTerminalHydrogens && !fakeAtom;
+			}
+		}else{
+			//don't draw terminal carbons
+			if(isCarbon){
+				if(ca.getBondCount() < 2){
+
+					//terminal C
+					drawCarbon = forceDraw || ca.getCharge() != 0 || ca.getRadical() != 0 || ca.isIsotope();
+				}else{
+					drawCarbon=false;
+				}
+				drawHydrogens = drawCarbon;
+			}
+		}
+		String attatch = "";
+
+		float[] p = new float[2];
+		centerTransform.transform(ca.getAtomCoordinates().xy(), 0, p, 0, 1);
+		if (ca.isIsotope()) {
+			String attatch2 = "";
+			attatch2 = getSuperScriptString(ca.getMassNumber());
+			if (!attatch2.equals("")) {
+				attachments.add(attatch2);
+				attachmentLOC.add(4);
+				attachmentSIZE.add(1f);
+				attachmentCOL.add(col);
+				forceDraw = true;
+			}
+		}
+		if (ca.getImplicitHCount() > 0) {
+			if (drawHydrogens) {
+				attatch += "H";
+				int hcount = ca.getImplicitHCount();
+				String ss = subScripts.get(hcount);
+				if (ss != null) {
+					attatch += ss;
+				}
+			}
+		}
+
+		if (ca.getCharge() != 0) {
+			String attatch2 = "";
+			int mag = Math.abs(ca.getCharge());
+
+			if (mag > 1) {
+				attatch2 = getSuperScriptString(mag);
+			}
+
+			if (ca.getCharge() > 0) {
+				attatch2 += "\u207A";
+			} else {
+				attatch2 += "\u207B";
+			}
+			if (!attatch2.equals("")) {
+				attachments.add(attatch2);
+				attachmentLOC.add(1);
+				attachmentSIZE.add(1f);
+				attachmentCOL.add(col);
+				forceDraw = true;
+			}
+		}
+
+		//MM experiment 30 May 2024
+		if(ca.getBonds().size()==0) {
+			forceDraw = true;
+		}
+		if (!attatch.equals("")) {
+			attachments.add(attatch);
+			if (ca.getBondCount() == 0) {
+				if (FORCE_LEFT_HYDROGEN.contains(ca.getSymbol()))
+					attachmentLOC.add(4);
+				else
+					attachmentLOC.add(1);
+			} else if (ca.getBondCount() == 1) {
+				attachmentLOC.add(1 | 4);
+			} else {
+				attachmentLOC.add(1 | 2 | 4 | 8);
+			}
+			attachmentCOL.add(col);
+			attachmentSIZE.add(1f);
+			forceDraw = true;
+		}
+		int radicalValue = ca.getRadical();
+		if (radicalValue != 0) {
+			String attatch2 = "";
+			switch (radicalValue) {
+				// NOTE CDK can't distinguish between divalent singlets and triplets
+				// so pretend they're both divalent singlets for now
+				// because that's what CDK's mol writer does....
+				case 1:
+					attatch2 = ".";
+					break;
+				case 2:
+					attatch2 = "\u200A.";
+					break;
+				default:
+			}
+			if (!attatch2.equals("")) {
+				attachments.add(attatch2);
+				attachmentLOC.add(2 | 8);
+				attachmentCOL.add(col);
+				attachmentSIZE.add(1f);
+				forceDraw = true;
+			}
+		}
+
+		if (showMappedNumbers) {
+			int amap = ca.getAtomToAtomMap().orElse(0);
+
+			if (amap != 0) {
+				String attatch2 = "";
+				attatch2 = getSuperScriptString(amap) + "";
+				if (!attatch2.equals("")) {
+					attachments.add(attatch2);
+					attachmentLOC.add(1 | 2 | 4 | 8);
+					attachmentCOL.add(col);
+					attachmentSIZE.add(1f);
+				}
+			}
+		}
+
+		boolean drawThisAtom = forceDraw
+				|| ((!isCarbon || drawCarbon) && (!isCarbon || drawTerminalCarbons || drawCarbon));
+		boolean drawAttachments = attachments.size() > 0;
+		if (ca.getBondCount() == 2) {
+			if (isCarbon) {
+
+				boolean onlyDoubleBonds = !ca.getBonds().stream()
+						.filter(cab -> cab.getBondType() != Bond.BondType.DOUBLE).findAny().isPresent();
+				if (onlyDoubleBonds) {
+					drawThisAtom = drawAlleneCarbon;
+				}
+			}
+		}
+
+		if (drawSymbols) {
+			if (drawAttachments) {
+				int used = 0;
+				for (int j = 0; j < attachments.size(); j++) {
+					String att = attachments.get(j);
+					float size = attachmentSIZE.get(j);
+					ARGBColor acol = attachmentCOL.get(j);
+					int supported = attachmentLOC.get(j);
+					int cardPos = supported;
+
+					float[] nv = new float[] { 0, 1 };
+
+					if (supported != -1) {
+						int avail = supported & (~used);
+						cardPos = getAttachCardPos(ca, att, avail);
+						used = used | (1 << cardPos);
+					} else {
+						nv = getNormVecAway(ca);
+
+					}
+
+				}
+			}
+		}
+		return new AttachmentInfo(attachments, attachmentLOC, attachmentSIZE, attachmentCOL);
+	}
 }
