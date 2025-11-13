@@ -1,7 +1,7 @@
 /*
  * NCATS-MOLWITCH-RENDERER
  *
- * Copyright 2024 NIH/NCATS
+ * Copyright 2025 NIH/NCATS
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -63,17 +63,23 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	private String protProperty = "AMINO_ACID_SEQUENCE";
 	private static Font defaultFont;
 
-	public void setBracketPositioningFactor(Double bracketPositioningFactor) {
-		this.bracketPositioningFactor = bracketPositioningFactor;
+	public void setBracketPositioningSlope(Double bracketPositioningSlope) {
+		this.bracketPositioningSlope = bracketPositioningSlope;
 	}
 
-	private Double bracketPositioningFactor = 0.2;
+	private Double bracketPositioningSlope = 0.5;
 
-	public void setMoleculeWidthFactorDenominator(Double moleculeWidthFactorDenominator) {
-		this.moleculeWidthFactorDenominator = moleculeWidthFactorDenominator;
+	public void setBracketPositioningIntercept(Double bracketPositioningIntercept) {
+		this.bracketPositioningIntercept = bracketPositioningIntercept;
 	}
 
-	private Double moleculeWidthFactorDenominator = 10.0;
+	private Double bracketPositioningIntercept = 1.0;
+
+	private Double lastUsedFactor;
+
+	public Double getLastUsedFactor(){
+		return this.lastUsedFactor;
+	}
 
 	static {
 		try {
@@ -1356,8 +1362,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	private Rectangle2D.Float computeBracketCoordsFor(SGroup cg, double bondWidth, Chemical chemical){
 		Point2D.Double ranges = getBounds(chemical);
 		Rectangle2D rt;
-		double padding = ranges.x/10.0 * 0.95;
-		System.out.printf("calculated padding %.2f\n", padding);
+		//double padding = ranges.x/10.0 * 0.95;
+		//System.out.printf("calculated padding %.2f\n", padding);
 		if(cg.bracketsSupported()){
 			
 			//framework implementation supports brackets so use those
@@ -1401,8 +1407,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 							charsLeft += attachedText.get(i).length();
 						}
 					}
-					System.out.printf("figuring %d chars to the left and %d to the right\n", charsLeft, charsRight);
-					double perChar = bracketPositioningFactor * (ranges.x/moleculeWidthFactorDenominator);
+					double perChar = bracketPositioningSlope * ranges.x + bracketPositioningIntercept;
+					System.out.printf("ranges.x: %.3f, perChar: %.2f, charsRight: %d, charsLeft: %d", ranges.x, perChar, charsRight, charsLeft);
+					lastUsedFactor = perChar;
 					//see how we draw H ???????????????????
 					double currentPaddingLeft = charsLeft * perChar;
 					double currentPaddingRight = charsRight * perChar;
@@ -2679,7 +2686,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	}
 
 
-	private static Point2D.Double getBounds(Chemical c) {
+	public static Point2D.Double getBounds(Chemical c) {
 		double minAtomX =Double.POSITIVE_INFINITY;
 		double maxAtomX =Double.NEGATIVE_INFINITY;
 		double minAtomY =Double.POSITIVE_INFINITY;
