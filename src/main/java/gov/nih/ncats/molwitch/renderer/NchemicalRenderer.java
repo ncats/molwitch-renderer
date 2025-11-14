@@ -67,19 +67,25 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		this.bracketPositioningSlope = bracketPositioningSlope;
 	}
 
-	private Double bracketPositioningSlope = 0.5;
+	private Double bracketPositioningSlope = 0.030;
 
 	public void setBracketPositioningIntercept(Double bracketPositioningIntercept) {
 		this.bracketPositioningIntercept = bracketPositioningIntercept;
 	}
 
-	private Double bracketPositioningIntercept = 1.0;
+	private Double bracketPositioningIntercept = 0.50;
 
 	private Double lastUsedFactor;
 
 	public Double getLastUsedFactor(){
 		return this.lastUsedFactor;
 	}
+
+	public void setIncludeBracketCoordinates(boolean includeBracketCoordinates) {
+		this.includeBracketCoordinates = includeBracketCoordinates;
+	}
+
+	private boolean includeBracketCoordinates = true;
 
 	static {
 		try {
@@ -328,6 +334,13 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 //		this.displayParams.DEF_NUM_DASH;
 		
 		final float Y_DISP_FRAC = (float)  this.displayParams.getDrawPropertyValue(DrawProperties.SUBSCRIPT_Y_DISPLACEMENT_FRACTION);
+		Double bracketPositioningInterceptValue = this.displayParams.getDrawPropertyValue(DrawProperties.BRACKET_POSITION_INTERCEPT);
+		setBracketPositioningIntercept(bracketPositioningInterceptValue);
+		Double bracketPositionSlopeValue = this.displayParams.getDrawPropertyValue(DrawProperties.BRACKET_POSITION_SLOPE);
+		setBracketPositioningSlope(bracketPositionSlopeValue);
+			System.out.printf("retrieved slope %.3f and intercept %.3f set bracketPositioningSlope to %.3f and bracketPositioningIntercept to %.3f\n",
+					bracketPositionSlopeValue, bracketPositioningInterceptValue, bracketPositioningSlope, bracketPositioningIntercept);
+
 		final ColorPalette colorPalette = this.displayParams.getColorPalette();
 
 		final List<ARGBColor> highlightColors = this.displayParams.getColorPalette().getHighlightColors();
@@ -1370,10 +1383,23 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			if(!cg.hasBrackets()){
 				return null;
 			}
+			Double[] bracketHeight = new Double[1];
+			bracketHeight[0] = null;
 			if(cg.bracketsTrusted()) {
 				Double[] lowestBracketX = new Double[1];
 				lowestBracketX[0]	= Double.POSITIVE_INFINITY;
 				List<AtomCoordinates> coords = new ArrayList<>(4);
+				if( includeBracketCoordinates) {
+					System.out.printf("including bracket coords\n");
+					for(SGroupBracket b: cg.getBrackets()){
+						coords.add(b.getPoint1());
+						coords.add(b.getPoint2());
+						bracketHeight[0] = Math.abs(b.getPoint1().getY()-b.getPoint2().getY());
+					}
+				} else {
+					System.out.printf("NOT including bracket coords\n");
+				}
+
 				for(SGroupBracket b: cg.getBrackets()){
 					coords.add(b.getPoint1());
 					if( b.getPoint1().getX() < lowestBracketX[0]){
@@ -1408,41 +1434,26 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						}
 					}
 					double perChar = bracketPositioningSlope * ranges.x + bracketPositioningIntercept;
-					System.out.printf("ranges.x: %.3f, perChar: %.2f, charsRight: %d, charsLeft: %d", ranges.x, perChar, charsRight, charsLeft);
+					double yDelta = bracketHeight[0] == null ?  0.1 : bracketHeight[0]/2;
+					//System.out.printf("ranges.x: %.3f, perChar: %.2f, charsRight: %d, charsLeft: %d", ranges.x, perChar, charsRight, charsLeft);
 					lastUsedFactor = perChar;
 					//see how we draw H ???????????????????
 					double currentPaddingLeft = charsLeft * perChar;
 					double currentPaddingRight = charsRight * perChar;
 					if( currentPaddingRight > 0 ) {
 						x = a.getAtomCoordinates().getX() + currentPaddingRight;
-						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY());
+						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() - yDelta);
 						coords.add(newCoords);
+						AtomCoordinates newCoordsb = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY()+ yDelta);
+						coords.add(newCoordsb);
 					}
 					if( currentPaddingLeft > 0) {
 						x = a.getAtomCoordinates().getX() - currentPaddingLeft;
-						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY());
+						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() - yDelta);
 						coords.add(newCoords);
+						AtomCoordinates newCoordsb = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() +yDelta);
+						coords.add(newCoordsb);
 					}
-					/*if(a.getAtomCoordinates().getX() < averageX) {
-						x = a.getAtomCoordinates().getX() - padding;
-					} else if(a.getAtomCoordinates().getX() > averageX ) {
-						x = a.getAtomCoordinates().getX() + 0.75*padding;
-					}
-					double y = a.getAtomCoordinates().getY();
-					*//*String logMessage = String.format("atom symbol %s, H count %d, X %.2f Y %.2f; new X: %.2f",
-							a.getSymbol(), a.getImplicitHCount(), a.getAtomCoordinates().getX(), a.getAtomCoordinates().getY(), x);
-					System.out.println(logMessage);*//*
-					if( x == null) {
-						double x1 = a.getAtomCoordinates().getX() - padding;
-						AtomCoordinates newCoords1 = AtomCoordinates.valueOf(x1, y);
-						coords.add(newCoords1);
-						double x2 = a.getAtomCoordinates().getX() + 0.75*padding;
-						AtomCoordinates newCoords2 = AtomCoordinates.valueOf(x2, y);
-						coords.add(newCoords2);
-					} else {
-						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, y);
-						coords.add(newCoords);
-					}*/
 				});
 
 				rt =  BoundingBox.computePaddedBoundingBoxForCoordinates(coords, 0);
