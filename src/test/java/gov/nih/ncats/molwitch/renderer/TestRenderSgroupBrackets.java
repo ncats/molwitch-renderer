@@ -13,8 +13,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestRenderSgroupBrackets {
+    private static final Logger log = LoggerFactory.getLogger(TestRenderSgroupBrackets.class);
 
     @Test
     public void renderWithBracketsSet() {
@@ -36,7 +39,7 @@ public class TestRenderSgroupBrackets {
                         File imageFile = new File(imageFileName);
                         imageFile.getParentFile().mkdirs();
                         ImageIO.write(actual, "PNG", imageFile);
-                        System.out.println("wrote file to " + imageFile.getAbsolutePath());
+                        log.trace("wrote file to {}", imageFile.getAbsolutePath());
                         return imageFile.exists();
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -63,7 +66,7 @@ public class TestRenderSgroupBrackets {
                         File imageFile = new File(imageFileName);
                         imageFile.getParentFile().mkdirs();
                         ImageIO.write(actual, "PNG", imageFile);
-                        System.out.println("wrote file to " + imageFile.getAbsolutePath());
+                        log.trace("wrote file to {}", imageFile.getAbsolutePath());
                         return imageFile.exists();
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -98,7 +101,7 @@ public class TestRenderSgroupBrackets {
                                 File imageFile = new File(imageFileName);
                                 imageFile.getParentFile().mkdirs();
                                 ImageIO.write(actual, "PNG", imageFile);
-                                System.out.printf("wrote file to %s spread: %.3f\n", imageFile.getAbsolutePath(), spread.getX());
+                                log.trace("wrote file to {} spread: {}", imageFile.getAbsolutePath(), spread.getX());
                                 return imageFile.exists();
                             } catch (IOException e) {
                                 e.printStackTrace();
@@ -134,14 +137,14 @@ public class TestRenderSgroupBrackets {
                         File imageFile = new File(imageFileName);
                         imageFile.getParentFile().mkdirs();
                         ImageIO.write(actual, "PNG", imageFile);
-                        System.out.printf("wrote file to %s spread: %.3f\n", imageFile.getAbsolutePath(), spread.getX());
+                        log.info("wrote file to %s spread: {}", imageFile.getAbsolutePath(), spread.getX());
                         //renderer.setIncludeBracketCoordinates(false);
                         actual = renderer.createImage(c, 600);
                         String imageFileName2 = String.format("images/%s_actual_%s_slope_%.2f_interacept_%.2f_factor_%.2f_off.png",
                                 MolWitch.getModuleName(), n, slope, intercept, lastUsed);
                         File imageFile2 = new File(imageFileName2);
                         ImageIO.write(actual, "PNG", imageFile2);
-                        //System.out.printf("wrote file to %s spread: %.3f\n", imageFile2.getAbsolutePath(), spread.getX());renderer.setIncludeBracketCoordinates(true);
+                        log.trace("wrote file to {} spread: {}", imageFile2.getAbsolutePath(), spread.getX());renderer.setIncludeBracketCoordinates(true);
                         return imageFile.exists();
                     } catch (IOException e) {
                         e.printStackTrace();

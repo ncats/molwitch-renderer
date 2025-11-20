@@ -52,6 +52,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 
@@ -59,6 +61,8 @@ import java.util.stream.Collectors;
  * @author katzelda Refactored + ported over for Chemkit
  */
 class NchemicalRenderer extends AbstractChemicalRenderer {
+	private static final Logger log = LoggerFactory.getLogger(NchemicalRenderer.class);
+
 	public static final ARGBColor transparent = new ARGBColor(0, 0, 0, 0);
 	private String protProperty = "AMINO_ACID_SEQUENCE";
 	private static Font defaultFont;
@@ -196,6 +200,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	 */
 	@Override
 	public void renderChem(Graphics2D g9, Chemical c, int x, int y, int width, int height) {
+		log.trace("in NchemicalRenderer.renderChem x: {}, y: {}, width: {}; height: {}",x, y, width, height);
 /*		System.out.printf("in NchemicalRenderer.renderChem x: %d, y: %d, width: %d; height: %d\n",
 				x, y, width, height);*/
 		boolean firstPass=true;
@@ -246,7 +251,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
 		g2.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
 		g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-		// System.out.println("There are " + c.getSGroupCount() + " sgroups");
+		log.trace("There are {} sgroups in {}", c.getSGroupCount(), c);
 
 		ArrayList<double[]> toAdd = new ArrayList<>();
 
@@ -338,9 +343,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		setBracketPositioningIntercept(bracketPositioningInterceptValue);
 		Double bracketPositionSlopeValue = this.displayParams.getDrawPropertyValue(DrawProperties.BRACKET_POSITION_SLOPE);
 		setBracketPositioningSlope(bracketPositionSlopeValue);
-			System.out.printf("retrieved slope %.3f and intercept %.3f set bracketPositioningSlope to %.3f and bracketPositioningIntercept to %.3f\n",
-					bracketPositionSlopeValue, bracketPositioningInterceptValue, bracketPositioningSlope, bracketPositioningIntercept);
-
 		final ColorPalette colorPalette = this.displayParams.getColorPalette();
 
 		final List<ARGBColor> highlightColors = this.displayParams.getColorPalette().getHighlightColors();
@@ -409,16 +411,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			Atom[] ca = new Atom[] { cb.getAtom1(), cb.getAtom2() };
 			
 			double length = Math.sqrt(ca[0].getAtomCoordinates().distanceSquaredTo(ca[1].getAtomCoordinates()));
-			//BONDAVG += length;
-			//Note: the 'oldWay' calculations in this class, currently commented out, were used to test the
-			// computations performed -- oldWay was the calculation as performed before an update to address
-			// security issue related to compound assignment statements with operands of different numeric types.
-			// in case of doubt, uncomment the oldWay lines and run rendering tests.
-//			float oldWay = BONDAVG;
-//			oldWay += length;
 			BONDAVG = MathUtilities.safeFloatAdd(BONDAVG, length);
-//			System.out.printf("oldWay: %.2f; new: %.2f\n", oldWay, BONDAVG);
-//			assert Math.abs(oldWay-BONDAVG) < (0.1 * oldWay);
 			float nx = 0;
 			float ny = 0;
 			int bondType = cb.getBondType().getOrder();
@@ -464,11 +457,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 									case DOUBLE:
 									case AROMATIC:
 										//weight *= 1.75;  for security issue 17 January 2024
-//										int oldWay2 = weight;
-//										oldWay2 *= 1.75;
 										weight = MathUtilities.safeScaleInt(weight, 1.75f);
-//										System.out.printf("oldWay: %d; new: %d\n", oldWay2, weight);
-//										assert Math.abs(oldWay2-weight) < (0.1 * oldWay2);
 										break;
 									default:
 										break;
@@ -476,20 +465,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 								}
 							}
 							AtomCoordinates coords = can.getAtomCoordinates();
-							//nx += coords.getX() * weight;// for security issue 17 January 2024
-//							float oldWay3 = nx;
-//							oldWay3+= coords.getX() * weight;
+
 							nx = MathUtilities.safeFloatAdd(nx, MathUtilities.safeFloatMultiply(coords.getX(), weight));
-//							System.out.printf("oldWay3: %.2f; new: %.2f\n", oldWay3, nx);
-//							assert Math.abs(oldWay3-nx) < (0.1 * oldWay3);
-
-							//ny += coords.getY() * weight;// for security issue 17 January 2024
-
-//							float oldWay4 = ny;
-//							oldWay4+=coords.getY() * weight;
 							ny =MathUtilities.safeFloatAdd(ny, MathUtilities.safeFloatMultiply (coords.getY(), weight));
-//							System.out.printf("oldWay4: %.2f; new: %.2f\n", oldWay4, ny);
-//							assert Math.abs(oldWay4-ny) < (0.1 * Math.abs(oldWay4));
 							bondCount += weight;
 						}
 					}
@@ -521,8 +499,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		}
 		double newMaxP=0.0; //was maxP
 		Rectangle2D boundingBox = BoundingBox.computeBoundingBoxFor(c, newMaxP);
-		/*System.out.printf("boundingBox: x = %.3f; y = %.3f; width = %.3f; height = %.3f\n",
-				boundingBox.getX(), boundingBox.getY(), boundingBox.getWidth(), boundingBox.getHeight());*/
+		log.trace("boundingBox: x = {}; y = {}; width = {}; height = {}",
+				boundingBox.getX(), boundingBox.getY(), boundingBox.getWidth(), boundingBox.getHeight());
 
 		minX = boundingBox.getMinX();
 		maxX = boundingBox.getMaxX();
@@ -544,18 +522,12 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		if (cheight <= 0.1) {
 			cheight = defHeight;
 		}
-		// System.out.println("Size:" + cwidth + "," + cheight);
-		//System.out.printf("original wMarge: %f; hMarge: %f\n", wMarge, hMarge);
-		//wMarge=wMarge/2;
-		//hMarge=hMarge/2;
-
 		double adjW = Math.max((width - wMarge) / cwidth, 1);
 		double adjH = Math.max((height - hMarge) / cheight, 1);
 		double resize = Math.min(adjW, adjH);
 		int newMarge = Math.max(
 				g2.getFontMetrics(defaultFont.deriveFont((float) (DEF_FONT_PERCENT * resize * BONDAVG))).getHeight(),
 				0);
-		//System.out.printf("original newMarge: %d\n", newMarge);
 		newMarge=newMarge/3;
 
 		adjW = (width - wMarge - newMarge) / cwidth;
@@ -563,7 +535,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		resize = Math.abs(Math.min(adjW, adjH));
 
 		AffineTransformParent centerTransform = ggen.makeAffineTransform();
-		//System.out.println("after ggen.makeAffineTransform(); resize: " + resize);
 
 		//this creates the basic approx bounds
 		centerTransform.translate(ncenterX, ncenterY);
@@ -619,16 +590,10 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				dash, 0.0f);
 		BasicStroke solidREC = new BasicStroke(bondWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER);
 		float fsize = (float) (DEF_FONT_PERCENT * resize * BONDAVG * theRealScale);
-		//System.out.printf("calculated fsize: %.3f; bracket font: %.3f\n", fsize, (fsize * braketFrac));
 		Font setfont = defaultFont.deriveFont(fsize);
 		Font brafont = defaultFont.deriveFont(fsize * braketFrac);
 		g2.setFont(setfont);
 		g2.setStroke(solid);
-
-		/*
-		 * 
-		 * if(fsize<8){ drawSymbols=false; }else{ }
-		 */
 
 		FontMetrics fm = g2.getFontMetrics();
 
@@ -709,14 +674,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 			if (highlightMapAtoms) {
 				col = drawColor;
-//				System.out.println("hightlight map atoms = " + highlightMapAtoms);
-//				System.out.println("highlightMonochromatic = " + highlightMonochromatic);
-//				
 				int map = ca.getAtomToAtomMap().orElse(0);
 				if(map >0) {
-//					System.out.println("map > 0 = " + map);
-					
-					if (!highlightMonochromatic) { 
+					if (!highlightMonochromatic) {
 						col= highlightColors.get(map%highlightColors.size());
 						} else {
 							col = highlightColors.get(2);
@@ -797,7 +757,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 							sm = sm + attach2;
 						}
 						forceDraw = true;
-						//System.out.printf("setting font to %.4f\n", (fsize * 0.7f));
 						g2.setFont(defaultFont.deriveFont(fsize * 0.7f));
 						fm = g2.getFontMetrics();
 					} else {
@@ -821,7 +780,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						} else {
 							attachmentCOL.add(col);
 						}
-						//System.out.printf("going to use der. font %.4f\n", (fsize * 1.0f));
 						g2.setFont(defaultFont.deriveFont(Font.BOLD, fsize * 1.0f));
 						fm = g2.getFontMetrics();
 					}
@@ -884,19 +842,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			if (drawHalo) {
 				g2.setColor(col);
 				float prad = radius;
-				//radius *= HALO_RADIUS_FUDGE;// for security issue 17 January 2024
-//				float oldWay5 = radius;
-//				oldWay5*= HALO_RADIUS_FUDGE;
 				radius = MathUtilities.safeFloatMultiply(radius, HALO_RADIUS_FUDGE);
-//				System.out.printf("oldWay: %.2f; new: %.2f\n", oldWay5, radius);
-//				assert Math.abs(oldWay5-radius) < (0.1 * oldWay5);
 
-				//radius += HALO_RADIUS_MULTIPLY * resize * BONDAVG;
-//				float oldWay6 = radius;
-//				oldWay6+= HALO_RADIUS_MULTIPLY * resize * BONDAVG;
 				radius = MathUtilities.safeFloatAdd(radius, MathUtilities.safeFloatMultiply(HALO_RADIUS_MULTIPLY, resize, BONDAVG));
-//				System.out.printf("oldWay6: %.2f; new: %.2f\n", oldWay6, radius);
-//				assert Math.abs(oldWay6-radius) < (0.1 * oldWay6);
 				g2.fillP(ggen.makeEllipse(p[0] - radius, p[1] - radius, radius * 2, radius * 2));
 				radius = prad;
 				hcol = col;
@@ -1081,7 +1029,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						Font fnt2 = ofont.deriveFont(fsize * size);
 						g2.setFont(fnt2);
 						FontMetrics fm2 = g2.getFontMetrics();
-						//System.out.printf("ofont: %d\n", ofont.getSize());
+						log.trace("ofont: {}", ofont.getSize());
 						g2.setFont(ofont);
 
 						Collection<Entry<String, float[]>> smap = getAttachPos(att, w, h, p, fm2, g2, cardPos, nv, Y_DISP_FRAC);
@@ -1125,7 +1073,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			//fsize =20.0f;
 			g2.setFont(defaultFont.deriveFont(fsize));
 			fm = g2.getFontMetrics();
-			//System.out.printf("font size %.3f\n", fm.getFont().getSize());
+			log.trace("font size {}", fm.getFont().getSize());
 		}
 
 
@@ -1213,11 +1161,11 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			}
 		}
 
-//		System.out.println("Before sgroup call BoundingBox = " + BoundingBox.computeBoundingBoxFor(c));
+		log.trace("Before sgroup call BoundingBox = {}", BoundingBox.computeBoundingBoxFor(c));
 		List<SGroup> cgs = c.getSGroups();
-//		System.out.println("sgroups = " + cgs);
-//		System.out.println("after sgroup call BoundingBox = " + BoundingBox.computeBoundingBoxFor(c));
-//
+		log.trace("sgroups = {}", cgs);
+		log.trace("after sgroup call BoundingBox = {}", BoundingBox.computeBoundingBoxFor(c));
+
 		if (cgs != null && !cgs.isEmpty()) {
 			g2.setFont(brafont);
 			//compute bounding boxes for brackets
@@ -1279,15 +1227,14 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					minAtomY=at.getAtomCoordinates().getY();
 				}
 			}
-			/*System.out.printf("computed minAtomX: %.3f; maxAtomX: %.3f; minAtomY: %.3f; maxAtomY: %.3f\n",
-					minAtomX, maxAtomX, minAtomY, maxAtomY);*/
+			log.trace("computed minAtomX: {}; maxAtomX: {}; minAtomY: {}; maxAtomY: {}",
+					minAtomX, maxAtomX, minAtomY, maxAtomY);
 
 			double xAtomRange = maxAtomX-minAtomX;
 			double yAtomRange = maxAtomY-minAtomY;
 			double xRatio = realBounds.getWidth()/xAtomRange;
 			double yRatio = realBounds.getHeight()/yAtomRange;
-			/*System.out.printf("xAtomRange: %.3f; yAtomRange: %.3f; xRatio: %.23f; yRatio: %.3f\n", xAtomRange, yAtomRange,
-					xRatio, yRatio);*/
+			log.trace("xAtomRange: {}; yAtomRange: {}; xRatio: {}; yRatio: {}", xAtomRange, yAtomRange, xRatio, yRatio);
 		}
 	}
 
@@ -1301,10 +1248,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 
 		centerTransform.transform(coord, 0, ncoord, 0, 4);
-//				System.out.println("atom coords = " + Arrays.toString(coord));
-//				System.out.println("transformed coords = " + Arrays.toString(ncoord));
-//				System.out.println(cg.getType());
-
 		Rectangle2D.Float nrect = new Rectangle2D.Float(ncoord[0], ncoord[1],
 				Math.abs(ncoord[4]-ncoord[0]), Math.abs(ncoord[3]-ncoord[1]));
 
@@ -1390,7 +1333,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				lowestBracketX[0]	= Double.POSITIVE_INFINITY;
 				List<AtomCoordinates> coords = new ArrayList<>(4);
 				if( includeBracketCoordinates) {
-					System.out.printf("including bracket coords\n");
 					for(SGroupBracket b: cg.getBrackets()){
 						coords.add(b.getPoint1());
 						coords.add(b.getPoint2());
@@ -1415,8 +1357,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				cg.getAtoms().forEach(a->{
 					totalX[0] += a.getAtomCoordinates().getX();
 				});
-				double averageX = totalX[0] / cg.getAtoms().count();
-				//System.out.println("average X: " + averageX);
 
 				cg.getAtoms().forEach(a->{
 					Double x = null;
@@ -1435,7 +1375,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					}
 					double perChar = bracketPositioningSlope * ranges.x + bracketPositioningIntercept;
 					double yDelta = bracketHeight[0] == null ?  0.1 : bracketHeight[0]/2;
-					//System.out.printf("ranges.x: %.3f, perChar: %.2f, charsRight: %d, charsLeft: %d", ranges.x, perChar, charsRight, charsLeft);
+					log.trace("ranges.x: {}, perChar: {}, charsRight: {}, charsLeft: {}", ranges.x, perChar, charsRight, charsLeft);
 					lastUsedFactor = perChar;
 					//see how we draw H ???????????????????
 					double currentPaddingLeft = charsLeft * perChar;
@@ -1457,8 +1397,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				});
 
 				rt =  BoundingBox.computePaddedBoundingBoxForCoordinates(coords, 0);
-				/*System.out.printf("bounding box. x = %.3f; y = %.3f; width = %.3f; height = %.3f\n",
-						rt.getX(), rt.getY(), rt.getWidth(), rt.getHeight());*/
+				log.trace("bounding box. x = {}; y = {}; width = {}; height = {}",
+						rt.getX(), rt.getY(), rt.getWidth(), rt.getHeight());
 				Rectangle2D.Float r = new Rectangle2D.Float((float) rt.getX(),
 						(float) rt.getY(), (float) rt.getWidth(),
 						(float) rt.getHeight());
@@ -1727,12 +1667,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				// center of double bond
 				float norm = DEF_DBL_BOND_GAP * resize * BONDAVG / (float) Math.sqrt((dxdbl * dxdbl + dydbl * dydbl));
 				if ((int) xy[4] == -1 || (centerAllDoubleBonds && (int) xy[4] == 2)) {
-					//norm *= .5;//  for security issue 17 January 2024
-//					float oldWay6 = norm;
-//					oldWay6 *= .5;
 					norm = MathUtilities.safeFloatMultiply(norm, 0.5f);
-//					System.out.printf("oldWay6: %.2f; new: %.2f\n", oldWay6, norm);
-//					assert Math.abs(oldWay6-norm) < (0.1 * oldWay6);
 					xy[4] = -1;
 				}
 				float dbcx[] = new float[2]; // double bond center x
@@ -1922,15 +1857,15 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					int labelWidth = metrics.stringWidth(bsPieces[0]);
 					double x = Math.min(cb.getAtom1().getAtomCoordinates().getX(), cb.getAtom2().getAtomCoordinates().getX()) +
 							Math.abs( cb.getAtom1().getAtomCoordinates().getX()-cb.getAtom2().getAtomCoordinates().getX())/2;
-					System.out.printf("atom1 x %.2f atom2 x %.2f middle %.2f\n", cb.getAtom1().getAtomCoordinates().getX(),
+					log.trace("atom1 x {} atom2 x {} middle %.2f", cb.getAtom1().getAtomCoordinates().getX(),
 							cb.getAtom2().getAtomCoordinates().getX(), x);
 					double y = Math.min(cb.getAtom1().getAtomCoordinates().getY(), cb.getAtom2().getAtomCoordinates().getY()) + Math.abs( cb.getAtom1().getAtomCoordinates().getY()-cb.getAtom2().getAtomCoordinates().getY())/2;
-					System.out.printf("atom1 y %.2f atom2 y %.2f middle %.2f\n", cb.getAtom1().getAtomCoordinates().getY(),
+					log.trace("atom1 y {} atom2 y {} middle %.2f", cb.getAtom1().getAtomCoordinates().getY(),
 							cb.getAtom2().getAtomCoordinates().getY(), y);
 					float fudgeFactor=240;
 					float xPos= (float) (x- labelWidth +1.5* fudgeFactor);
 					float yPos = (float) (y + metrics.getHeight()/2 )+fudgeFactor;
-					System.out.printf("Going to draw string '%s' at %.2f, %.2f\n", bsPieces[0],
+					log.trace("Going to draw string '{}' at {}, {}", bsPieces[0],
 							xPos, yPos);
 					ARGBColor colorBefore= g2.getARGBColor();
 					g2.setColor(new ARGBColor(0, 255, 0, 250));
@@ -2101,7 +2036,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				double[] second = angs.get((i + 1) % angs.size());
 				double ang1 = first[1];
 				double ang2 = second[1];
-//				System.out.println(ang2 / Math.PI * 180);
 				if (ang1 > ang2) {
 					ang2 = ang2 + Math.PI * 2;
 				}
@@ -2450,9 +2384,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		line = getBoundedLine(line, pt1, pt2);
 		ARGBColor c = g.getARGBColor();
 		boolean split = false;
-		// if(c1!=null && c2!=null){
-		// System.out.println(c1 + " ?=" + c2);
-		// System.out.println(c1);
 		g.setColor(c2);
 		if (!c1.equals(c2)) {
 			split = true;
@@ -2499,7 +2430,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	private static void drawDashLine(Graphics2DTemp g, LineParent line, float pt1[], float pt2[], int NUMLINE,
 			boolean prop, ARGBColor c1, ARGBColor c2) {
 		line = getBoundedLine(line, pt1, pt2);
-		// System.out.println("LINE DASH");
+		log.trace("LINE DASH");
 		ARGBColor c = g.getARGBColor();
 		g.setColor(c2);
 
@@ -2792,7 +2723,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						sm = sm + attach2;
 					}
 					forceDraw = true;
-					//System.out.printf("setting font to %.4f\n", (fsize * 0.7f));
 				} else {
 					// should restrict full atom highlight for
 					// small images
