@@ -1029,7 +1029,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						Font fnt2 = ofont.deriveFont(fsize * size);
 						g2.setFont(fnt2);
 						FontMetrics fm2 = g2.getFontMetrics();
-						log.trace("ofont: {}", ofont.getSize());
 						g2.setFont(ofont);
 
 						Collection<Entry<String, float[]>> smap = getAttachPos(att, w, h, p, fm2, g2, cardPos, nv, Y_DISP_FRAC);
@@ -1039,11 +1038,6 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 										ent.getValue()[1], acol);
 								toAddLabelsD.add(dl);
 								dl.atomGroup = ca;
-
-								// toAddLabels.add(ent.getKey());
-								// toAddLabelsPos.add(ent.getValue());
-								// toAddLabelsColor.add(acol);
-								// toAddLabelsFont.add(fnt2);
 							}
 						}
 					}
@@ -1069,11 +1063,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			drawProps.dcolor = col;
 			drawProps.hcolor = hcol;
 			drawProps.radius = radius;
-			//simple test 20 September 2022
-			//fsize =20.0f;
 			g2.setFont(defaultFont.deriveFont(fsize));
 			fm = g2.getFontMetrics();
-			log.trace("font size {}", fm.getFont().getSize());
 		}
 
 
@@ -1161,11 +1152,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			}
 		}
 
-		log.trace("Before sgroup call BoundingBox = {}", BoundingBox.computeBoundingBoxFor(c));
 		List<SGroup> cgs = c.getSGroups();
-		log.trace("sgroups = {}", cgs);
-		log.trace("after sgroup call BoundingBox = {}", BoundingBox.computeBoundingBoxFor(c));
-
 		if (cgs != null && !cgs.isEmpty()) {
 			g2.setFont(brafont);
 			//compute bounding boxes for brackets
@@ -1199,9 +1186,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					continue;
 				}
 				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect);
-
 			}
-
 		}
 		 
 		
@@ -1255,17 +1240,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 		float bracketWidth= nrect.width/10;
 
-//
-
 		float len1 = (ncoord[0] - ncoord[6]) * (ncoord[0] - ncoord[6]); // +
-		// (ncoord[1]
-		// -
-		// ncoord[7])
-		// *
-		// (ncoord[1]
-		// -
-		// ncoord[7]);
-
 		len1 = (float) Math.sqrt(len1) / 2;
 		float len2 = (ncoord[6] - ncoord[4]) * (ncoord[6] - ncoord[4])
 				+ (ncoord[5] - ncoord[7]) * (ncoord[5] - ncoord[7]);
@@ -1279,19 +1254,13 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		g2.drawP(ggen.makeLine(ncoord[4], ncoord[5], ncoord[6], ncoord[7]));
 		g2.drawP(ggen.makeLine(ncoord[4], ncoord[5], ncoord[4] - len1 * bsize, ncoord[5]));
 		g2.drawP(ggen.makeLine(ncoord[6], ncoord[7], ncoord[6] - len1 * bsize, ncoord[7]));
-
-
-//				System.out.println("minX " + minX + " minY = " + minY + "maxX = " + maxX + " maxY" + maxY);
 		float[] transformed = new float[4];
 
 		centerTransform.transform(new float[] {minX, minY, maxX, maxY}, 0, transformed,0, 2);
-//				System.out.println("transformed mins = " + Arrays.toString(transformed));
 
 		Optional<String> subs = cg.getSubscript();
 		Optional<String> supsOpt = cg.getSuperscript();
 
-//				System.out.println("subs = " + subs);
-//				System.out.println("sups = " + supsOpt);
 		if(supsOpt.isPresent() && (cg.getType() == SGroupType.MULTIPLE || supsOpt.get().equals("eu")) ){
 			supsOpt = Optional.empty();
 
@@ -1322,7 +1291,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		//System.out.printf("calculated padding %.2f\n", padding);
 		if(cg.bracketsSupported()){
 			
-			//framework implementation supports brackets so use those
+				//framework implementation supports brackets so use those
 			if(!cg.hasBrackets()){
 				return null;
 			}
@@ -1382,6 +1351,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					double currentPaddingRight = charsRight * perChar;
 					if( currentPaddingRight > 0 ) {
 						x = a.getAtomCoordinates().getX() + currentPaddingRight;
+						log.trace("using padding of {} to shift X right from {} to {}", currentPaddingRight, a.getAtomCoordinates().getX(), x);
 						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() - yDelta);
 						coords.add(newCoords);
 						AtomCoordinates newCoordsb = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY()+ yDelta);
@@ -1389,6 +1359,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					}
 					if( currentPaddingLeft > 0) {
 						x = a.getAtomCoordinates().getX() - currentPaddingLeft;
+						log.trace("using padding of {} to shift X left from {} to {}", currentPaddingLeft, a.getAtomCoordinates().getX(), x);
 						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() - yDelta);
 						coords.add(newCoords);
 						AtomCoordinates newCoordsb = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() +yDelta);
@@ -1397,7 +1368,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				});
 
 				rt =  BoundingBox.computePaddedBoundingBoxForCoordinates(coords, 0);
-				log.trace("bounding box. x = {}; y = {}; width = {}; height = {}",
+				log.trace("bounding box for SGroup brackets. x = {}; y = {}; width = {}; height = {}",
 						rt.getX(), rt.getY(), rt.getWidth(), rt.getHeight());
 				Rectangle2D.Float r = new Rectangle2D.Float((float) rt.getX(),
 						(float) rt.getY(), (float) rt.getWidth(),

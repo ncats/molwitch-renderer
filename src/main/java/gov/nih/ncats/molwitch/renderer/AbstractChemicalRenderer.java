@@ -34,8 +34,6 @@ import java.awt.image.BufferedImageOp;
 import java.awt.image.ColorConvertOp;
 import java.awt.image.ConvolveOp;
 import java.awt.image.Kernel;
-import java.io.File;
-import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,11 +41,12 @@ import java.util.concurrent.ConcurrentMap;
 
 import gov.nih.ncats.molwitch.Chemical;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-
-
- abstract class AbstractChemicalRenderer {
-	
+ abstract class AbstractChemicalRenderer { 
+	private static final Logger log = LoggerFactory.getLogger(AbstractChemicalRenderer.class);
+	 
 	public static final String PROPERTY_NAME = "NAME_OF_CHEMICAL_4829103";
 	public static final String PROPERTY_SMILES = "SMILES_OF_CHEMICAL_4829103";
 	
@@ -114,8 +113,8 @@ import gov.nih.ncats.molwitch.Chemical;
 	renderChem (g2, c, 0, 0, width, height, round);
 	}
 	public void renderChem (Graphics2D g2, Chemical c, int x, int y,int width, int height, boolean round){
-		/*System.out.printf("starting renderChem total atoms: %d; x: %d; y: %d, width: %d; height: %d; round: %b\n",
-				c.getAtomCount(), x, y, width, height, round);*/
+		log.trace("starting renderChem total atoms: {}; x: {}; y: {}, width: {}; height: {}; round: {}",
+				c.getAtomCount(), x, y, width, height, round);
 		renderBackground(g2,x,y,width,height,round);
 		if(getShadowVisible())
 			renderChemicalShadow(g2,c,x,y,width,height);
