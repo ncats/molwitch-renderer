@@ -79,6 +79,23 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 	private Double bracketPositioningIntercept = 0.50;
 
+	public void setBracketPositioningLeftFudgeFactor(Double bracketPositioningLeftFudgeFactor) {
+		this.bracketPositioningLeftFudgeFactor = bracketPositioningLeftFudgeFactor;
+	}
+
+	public void setBracketPositioningRightFudgeFactor(Double bracketPositioningRightFudgeFactor) {
+		this.bracketPositioningRightFudgeFactor = bracketPositioningRightFudgeFactor;
+	}
+
+	private Double bracketPositioningLeftFudgeFactor = 0.0;
+	private Double bracketPositioningRightFudgeFactor = 0.0;
+
+	public void setBracketPositionFudgeFactorCutoff(Long bracketPositionFudgeFactorCutoff) {
+		this.bracketPositionFudgeFactorCutoff = bracketPositionFudgeFactorCutoff;
+	}
+
+	private Long bracketPositionFudgeFactorCutoff = 40l;
+
 	private Double lastUsedFactor;
 
 	public Double getLastUsedFactor(){
@@ -343,6 +360,18 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		setBracketPositioningIntercept(bracketPositioningInterceptValue);
 		Double bracketPositionSlopeValue = this.displayParams.getDrawPropertyValue(DrawProperties.BRACKET_POSITION_SLOPE);
 		setBracketPositioningSlope(bracketPositionSlopeValue);
+		Double bracketPositionLeftFudgeFactor = this.displayParams.getDrawPropertyValue(DrawProperties.BRACKET_POSITION_LEFT_FUDGE_FACTOR);
+		if( bracketPositionLeftFudgeFactor != null ) {
+			setBracketPositioningLeftFudgeFactor(bracketPositionLeftFudgeFactor);
+		}
+		Double bracketPositionRightFudgeFactor = this.displayParams.getDrawPropertyValue(DrawProperties.BRACKET_POSITION_RIGHT_FUDGE_FACTOR);
+		if( bracketPositionRightFudgeFactor != null ) {
+			setBracketPositioningRightFudgeFactor(bracketPositionRightFudgeFactor);
+		}
+		Double rawBracketPositionFudgeFactorCutoff = this.displayParams.getDrawPropertyValue(DrawProperties.BRACKET_POSITION_FUDGE_FACTOR_ATOM_CUTOFF);
+		if( rawBracketPositionFudgeFactorCutoff != null) {
+			setBracketPositionFudgeFactorCutoff( Math.round(rawBracketPositionFudgeFactorCutoff));
+		}
 		final ColorPalette colorPalette = this.displayParams.getColorPalette();
 
 		final List<ARGBColor> highlightColors = this.displayParams.getColorPalette().getHighlightColors();
@@ -1285,21 +1314,22 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	}
 
 	private Rectangle2D.Float computeBracketCoordsFor(SGroup cg, double bondWidth, Chemical chemical){
-		Point2D.Double ranges = getBounds(chemical);
+		Point2D.Double coordinateSpread = getCoordinateSpread(chemical);
 		Rectangle2D rt;
-		//double padding = ranges.x/10.0 * 0.95;
-		//System.out.printf("calculated padding %.2f\n", padding);
 		if(cg.bracketsSupported()){
-			
-				//framework implementation supports brackets so use those
+			//framework implementation supports brackets so use those
 			if(!cg.hasBrackets()){
 				return null;
 			}
+			long numberOfAtoms = cg.getAtoms().count();
+			log.trace("total atoms in SGroup: {}", numberOfAtoms);
 			Double[] bracketHeight = new Double[1];
 			bracketHeight[0] = null;
 			if(cg.bracketsTrusted()) {
 				Double[] lowestBracketX = new Double[1];
-				lowestBracketX[0]	= Double.POSITIVE_INFINITY;
+				Double[] highestBracketX = new Double[1];
+				lowestBracketX[0] = Double.NEGATIVE_INFINITY;
+				highestBracketX[0] = Double.POSITIVE_INFINITY;
 				List<AtomCoordinates> coords = new ArrayList<>(4);
 				if( includeBracketCoordinates) {
 					for(SGroupBracket b: cg.getBrackets()){
@@ -1308,7 +1338,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						bracketHeight[0] = Math.abs(b.getPoint1().getY()-b.getPoint2().getY());
 					}
 				} else {
-					System.out.printf("NOT including bracket coords\n");
+					log.debug("NOT including bracket coords\n");
 				}
 
 				for(SGroupBracket b: cg.getBrackets()){
@@ -1316,18 +1346,21 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					if( b.getPoint1().getX() < lowestBracketX[0]){
 						lowestBracketX[0] = b.getPoint1().getX();
 					}
+					if( b.getPoint1().getX() > highestBracketX[0]){
+						highestBracketX[0]= b.getPoint1().getX();
+					}
 					coords.add(b.getPoint2());
 					if( b.getPoint2().getX() < lowestBracketX[0]){
 						lowestBracketX[0] = b.getPoint2().getX();
 					}
+					if( b.getPoint2().getX() > highestBracketX[0]){
+						highestBracketX[0]= b.getPoint2().getX();
+					}
 				}
-				Double[] totalX =new Double[1];
-				totalX[0] = 0.0;
-				cg.getAtoms().forEach(a->{
-					totalX[0] += a.getAtomCoordinates().getX();
-				});
-
-				cg.getAtoms().forEach(a->{
+				cg.getAtoms()
+						.peek(a-> log.trace("atom {}; x: {}", a.getSymbol(), a.getAtomCoordinates().getX()))
+						.filter(a-> a.getAtomCoordinates().getX() >= lowestBracketX[0]  && a.getAtomCoordinates().getX() <= highestBracketX[0])
+						.forEach(a->{
 					Double x = null;
 					//use attachments as an estimate of how much padding the atom needs on the left and the right.
 					AttachmentInfo attachmentInfo=  computeAttachments(a);
@@ -1336,26 +1369,34 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					int charsLeft = 0;
 					int charsRight = 0;
 					for(int i = 0; i < attachedText.size(); i++) {
-						if(attachmentPositions.get(i) == 1){
+						if(attachmentPositions.get(i) == 1 ){
 							charsRight += attachedText.get(i).length();
 						} else if( attachmentPositions.get(i) == 4) {
 							charsLeft += attachedText.get(i).length();
+						} else if( attachmentPositions.get(i) == 5) {
+							charsRight += attachedText.get(i).length();
+							charsLeft += attachedText.get(i).length();
 						}
 					}
-					double perChar = bracketPositioningSlope * ranges.x + bracketPositioningIntercept;
+					double perChar = bracketPositioningSlope * coordinateSpread.x + bracketPositioningIntercept;
 					double yDelta = bracketHeight[0] == null ?  0.1 : bracketHeight[0]/2;
-					log.trace("ranges.x: {}, perChar: {}, charsRight: {}, charsLeft: {}", ranges.x, perChar, charsRight, charsLeft);
 					lastUsedFactor = perChar;
-					//see how we draw H ???????????????????
+					//see how we draw H
 					double currentPaddingLeft = charsLeft * perChar;
 					double currentPaddingRight = charsRight * perChar;
 					if( currentPaddingRight > 0 ) {
+						log.trace("coordinateSpread.x: {}, perChar: {}, charsRight: {}, charsLeft: {}", coordinateSpread.x, perChar, charsRight, charsLeft);
 						x = a.getAtomCoordinates().getX() + currentPaddingRight;
 						log.trace("using padding of {} to shift X right from {} to {}", currentPaddingRight, a.getAtomCoordinates().getX(), x);
 						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() - yDelta);
 						coords.add(newCoords);
 						AtomCoordinates newCoordsb = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY()+ yDelta);
 						coords.add(newCoordsb);
+						log.trace("using atom X: {}", x);
+					} else {
+						AtomCoordinates coordsToAdd = AtomCoordinates.valueOf(a.getAtomCoordinates().getX(), a.getAtomCoordinates().getY());
+						coords.add(coordsToAdd);
+						log.trace("using atom X: {}", a.getAtomCoordinates().getX());
 					}
 					if( currentPaddingLeft > 0) {
 						x = a.getAtomCoordinates().getX() - currentPaddingLeft;
@@ -1364,15 +1405,41 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						coords.add(newCoords);
 						AtomCoordinates newCoordsb = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() +yDelta);
 						coords.add(newCoordsb);
+						log.trace("using atom X: {}", x);
+					}  else {
+						AtomCoordinates coordsToAdd = AtomCoordinates.valueOf(a.getAtomCoordinates().getX(), a.getAtomCoordinates().getY());
+						coords.add(coordsToAdd);
+						log.trace("using atom X: {}", a.getAtomCoordinates().getX());
 					}
 				});
 
 				rt =  BoundingBox.computePaddedBoundingBoxForCoordinates(coords, 0);
-				log.trace("bounding box for SGroup brackets. x = {}; y = {}; width = {}; height = {}",
-						rt.getX(), rt.getY(), rt.getWidth(), rt.getHeight());
+				log.trace("bounding box for SGroup brackets. x = {}; y = {}; width = {}; height = {};.... bracketPositionFudgeFactorCutoff: {}",
+						rt.getX(), rt.getY(), rt.getWidth(), rt.getHeight(),bracketPositionFudgeFactorCutoff);
+
+				double xLeftFudgeFactor = 0;
+				if( cg.getAtoms().count()> bracketPositionFudgeFactorCutoff) {
+					xLeftFudgeFactor = this.bracketPositioningLeftFudgeFactor != null
+							? this.bracketPositioningLeftFudgeFactor
+							: cg.getAtoms().count()/24;
+					log.trace("set xLeftFudgeFactor to {}", xLeftFudgeFactor);
+				}
+
+				double xRightFudgeFactor = 0;
+				if( cg.getAtoms().count()> bracketPositionFudgeFactorCutoff) {
+					xRightFudgeFactor = this.bracketPositioningRightFudgeFactor != null
+							? this.bracketPositioningRightFudgeFactor
+							: cg.getAtoms().count()/15;
+					log.trace("set xRightFudgeFactor to {}", xRightFudgeFactor);
+				}
+				log.trace("xLeftFudgeFactor: {}; xRightFudgeFactor: {}", xLeftFudgeFactor, xRightFudgeFactor);
+				rt = new Rectangle2D.Double(rt.getX()- xLeftFudgeFactor, rt.getY(),
+							rt.getWidth()+xRightFudgeFactor, rt.getHeight());
+
 				Rectangle2D.Float r = new Rectangle2D.Float((float) rt.getX(),
 						(float) rt.getY(), (float) rt.getWidth(),
 						(float) rt.getHeight());
+				log.trace("computeBracketCoordsFor going to return {} and {}", r.getX(), r.getX()+r.width);
 				return r;
 			}
 		}
@@ -2599,7 +2666,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	}
 
 
-	public static Point2D.Double getBounds(Chemical c) {
+	public static Point2D.Double getCoordinateSpread(Chemical c) {
 		double minAtomX =Double.POSITIVE_INFINITY;
 		double maxAtomX =Double.NEGATIVE_INFINITY;
 		double minAtomY =Double.POSITIVE_INFINITY;
@@ -2624,6 +2691,30 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		return new Point2D.Double(xAtomRange, yAtomRange);
 	}
 
+	public static Point2D.Double getCoordinateSpread(SGroup c) {
+		double minAtomX =Double.POSITIVE_INFINITY;
+		double maxAtomX =Double.NEGATIVE_INFINITY;
+		double minAtomY =Double.POSITIVE_INFINITY;
+		double maxAtomY =Double.NEGATIVE_INFINITY;
+
+		for( Atom  at : c.getAtoms().collect(Collectors.toList())){
+			if( at.getAtomCoordinates().getX() > maxAtomX) {
+				maxAtomX=at.getAtomCoordinates().getX();
+			}
+			if( at.getAtomCoordinates().getX() < minAtomX) {
+				minAtomX=at.getAtomCoordinates().getX();
+			}
+			if( at.getAtomCoordinates().getY() > maxAtomY) {
+				maxAtomY=at.getAtomCoordinates().getY();
+			}
+			if( at.getAtomCoordinates().getY() < minAtomY) {
+				minAtomY=at.getAtomCoordinates().getY();
+			}
+		}
+		double xAtomRange = maxAtomX-minAtomX;
+		double yAtomRange = maxAtomY-minAtomY;
+		return new Point2D.Double(xAtomRange, yAtomRange);
+	}
 	private AttachmentInfo computeAttachments(Atom ca) {
 		List<String> attachments = new ArrayList<String>();
 		List<Integer> attachmentLOC = new ArrayList<Integer>();
@@ -2852,27 +2943,12 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			}
 		}
 
-		boolean drawThisAtom = forceDraw
-				|| ((!isCarbon || drawCarbon) && (!isCarbon || drawTerminalCarbons || drawCarbon));
 		boolean drawAttachments = attachments.size() > 0;
-		if (ca.getBondCount() == 2) {
-			if (isCarbon) {
-
-				boolean onlyDoubleBonds = !ca.getBonds().stream()
-						.filter(cab -> cab.getBondType() != Bond.BondType.DOUBLE).findAny().isPresent();
-				if (onlyDoubleBonds) {
-					drawThisAtom = drawAlleneCarbon;
-				}
-			}
-		}
-
 		if (drawSymbols) {
 			if (drawAttachments) {
 				int used = 0;
 				for (int j = 0; j < attachments.size(); j++) {
 					String att = attachments.get(j);
-					float size = attachmentSIZE.get(j);
-					ARGBColor acol = attachmentCOL.get(j);
 					int supported = attachmentLOC.get(j);
 					int cardPos = supported;
 
@@ -2890,6 +2966,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				}
 			}
 		}
+		log.trace("at the end of computeAttachments, drawHydrogens: {}; attachments: {}; attachmentLOC: {}", drawHydrogens, String.join(";", attachments ), attachmentLOC);
 		return new AttachmentInfo(attachments, attachmentLOC, attachmentSIZE, attachmentCOL);
 	}
 }

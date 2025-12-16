@@ -66,10 +66,10 @@ public class TestRenderSgroupBrackets {
                             try {
                                 String name = String.format("/%s.mol", n);
                                 Chemical c = Chemical.parseMol(new File(getClass().getResource(name).getFile()));
-                                Point2D.Double spread = NchemicalRenderer.getBounds(c);
+                                Point2D.Double spread = NchemicalRenderer.getCoordinateSpread(c);
                                 BufferedImage actual = renderer.createImage(c, 600);
                                 Double lastUsed = renderer.getLastUsedFactor();
-                                String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_interacept_%.2f_factor_%.2f.png",
+                                String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_intercept_%.2f_factor_%.2f.png",
                                         MolWitch.getModuleName(), n, slope, intercept, lastUsed);
                                 File imageFile = new File(imageFileName);
                                 imageFile.getParentFile().mkdirs();
@@ -101,19 +101,19 @@ public class TestRenderSgroupBrackets {
                     try {
                         String name = String.format("/%s.mol", n);
                         Chemical c = Chemical.parseMol(new File(getClass().getResource(name).getFile()));
-                        Point2D.Double spread = NchemicalRenderer.getBounds(c);
+                        Point2D.Double spread = NchemicalRenderer.getCoordinateSpread(c);
                         //renderer.setIncludeBracketCoordinates(true);
                         BufferedImage actual = renderer.createImage(c, 600);
                         Double lastUsed = renderer.getLastUsedFactor();
-                        String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_interacept_%.2f_factor_%.2f_on.png",
+                        String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_intercept_%.2f_factor_%.2f_on.png",
                                 MolWitch.getModuleName(), n, slope, intercept, lastUsed);
                         File imageFile = new File(imageFileName);
                         imageFile.getParentFile().mkdirs();
                         ImageIO.write(actual, "PNG", imageFile);
-                        log.info("wrote file to %s spread: {}", imageFile.getAbsolutePath(), spread.getX());
+                        log.info("wrote file to {} spread: {}", imageFile.getAbsolutePath(), spread.getX());
                         //renderer.setIncludeBracketCoordinates(false);
                         actual = renderer.createImage(c, 600);
-                        String imageFileName2 = String.format("images/%s_actual_%s_slope_%.2f_interacept_%.2f_factor_%.2f_off.png",
+                        String imageFileName2 = String.format("images/%s_actual_%s_slope_%.2f_intercept_%.2f_factor_%.2f_off.png",
                                 MolWitch.getModuleName(), n, slope, intercept, lastUsed);
                         File imageFile2 = new File(imageFileName2);
                         ImageIO.write(actual, "PNG", imageFile2);
@@ -142,21 +142,15 @@ public class TestRenderSgroupBrackets {
                     try {
                         String name = String.format("/%s.mol", n);
                         Chemical c = Chemical.parseMol(new File(getClass().getResource(name).getFile()));
-                        Point2D.Double spread = NchemicalRenderer.getBounds(c);
+                        Point2D.Double spread = NchemicalRenderer.getCoordinateSpread(c);
                         BufferedImage actual = renderer.createImage(c, 600);
                         Double lastUsed = renderer.getLastUsedFactor();
-                        String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_interacept_%.2f_factor_%.2f_on.png",
+                        String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_intercept_%.2f_factor_%.2f_on.png",
                                 MolWitch.getModuleName(), n, slope, intercept, lastUsed);
                         File imageFile = new File(imageFileName);
                         imageFile.getParentFile().mkdirs();
                         ImageIO.write(actual, "PNG", imageFile);
-                        log.info("wrote file to %s spread: {}", imageFile.getAbsolutePath(), spread.getX());
-                        actual = renderer.createImage(c, 600);
-                        String imageFileName2 = String.format("images/%s_actual_%s_slope_%.2f_interacept_%.2f_factor_%.2f_off.png",
-                                MolWitch.getModuleName(), n, slope, intercept, lastUsed);
-                        File imageFile2 = new File(imageFileName2);
-                        ImageIO.write(actual, "PNG", imageFile2);
-                        log.trace("wrote file to {} spread: {}", imageFile2.getAbsolutePath(), spread.getX());renderer.setIncludeBracketCoordinates(true);
+                        log.info("wrote file to {} spread: {}", imageFile.getAbsolutePath(), spread.getX());
                         return imageFile.exists();
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -167,4 +161,51 @@ public class TestRenderSgroupBrackets {
         Assert.assertTrue(results.stream().allMatch(r -> r));
     }
 
+    @Test
+    public void renderWithBrackets1MoleculeWithIssues() {
+        RendererOptions rendererOptions = new RendererOptions();
+        double slope =0.03;
+        double intercept = 0.5;
+        rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
+        rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
+        NchemicalRenderer renderer = new NchemicalRenderer(rendererOptions);
+        List<String> chemicalNames = Arrays.asList("R6DXU4WAY9");
+        List<Boolean> results = chemicalNames.stream()
+                .map(n -> {
+                    try {
+                        String name = String.format("/%s.mol", n);
+                        Chemical c = Chemical.parseMol(new File(getClass().getResource(name).getFile()));
+                        Point2D.Double spread = NchemicalRenderer.getCoordinateSpread(c);
+                        BufferedImage actual = renderer.createImage(c, 600);
+                        Double lastUsed = renderer.getLastUsedFactor();
+                        String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_intercept_%.2f_factor_%.2f.png",
+                                MolWitch.getModuleName(), n, slope, intercept, lastUsed);
+                        File imageFile = new File(imageFileName);
+                        imageFile.getParentFile().mkdirs();
+                        ImageIO.write(actual, "PNG", imageFile);
+                        log.info("wrote file to {} spread: {}", imageFile.getAbsolutePath(), spread.getX());
+                        return imageFile.exists();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+        Assert.assertTrue(results.stream().allMatch(r -> r));
+    }
+
+    @Test
+    public void testGetBounds() throws IOException {
+        List<String> molnames = Arrays.asList("4XYU5U00C4", "P88XT4IS4D");
+        List<Double> expectedXSpreads = Arrays.asList(0.0, 9.725);
+        for(int i = 0; i < molnames.size(); i++) {
+            String name = String.format("/%s.mol", molnames.get(i));
+            Chemical chemical = Chemical.parseMol(new File(getClass().getResource(name).getFile()));
+            Point2D boundingBox = NchemicalRenderer.getCoordinateSpread(chemical);
+            Assert.assertEquals(expectedXSpreads.get(i), boundingBox.getX(), 0.001);
+         }
+    }
+
+
+    //P88XT4IS4D
 }

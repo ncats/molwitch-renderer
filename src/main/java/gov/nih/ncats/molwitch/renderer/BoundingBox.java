@@ -29,7 +29,9 @@ import gov.nih.ncats.molwitch.Atom;
 import gov.nih.ncats.molwitch.AtomCoordinates;
 import gov.nih.ncats.molwitch.Chemical;
 import gov.nih.ncats.molwitch.SGroup;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 class BoundingBox {
     public static Rectangle2D computeBoundingBoxFor(Chemical c) {
         return computeBoundingBoxFor(c, 0);
@@ -115,7 +117,6 @@ class BoundingBox {
 		double maxY = Double.NEGATIVE_INFINITY;
 		
 		for(AtomCoordinates coords : c){
-
 			double x = coords.getX();
 			double y = coords.getY();
 			
@@ -132,6 +133,7 @@ class BoundingBox {
 				maxY=y;
 			}
 		}
+		log.trace("computePaddedBoundingBoxForCoordinates found minX {}; padding: {}", minX, padding);
 		double doublePadding = padding*2;
 		return new Rectangle2D.Double(minX-padding, minY-padding,
 				Math.abs((maxX-minX)+doublePadding), 
