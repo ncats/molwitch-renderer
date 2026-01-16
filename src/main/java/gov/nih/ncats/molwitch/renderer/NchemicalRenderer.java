@@ -1374,8 +1374,8 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						} else if( attachmentPositions.get(i) == 4) {
 							charsLeft += attachedText.get(i).length();
 						} else if( attachmentPositions.get(i) == 5) {
-							charsRight += attachedText.get(i).length();
-							charsLeft += attachedText.get(i).length();
+							charsRight += Math.max(attachedText.get(i).length()/2, 1);
+							charsLeft += Math.max(attachedText.get(i).length()/2, 1);
 						}
 					}
 					double perChar = bracketPositioningSlope * coordinateSpread.x + bracketPositioningIntercept;
@@ -1392,11 +1392,11 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						coords.add(newCoords);
 						AtomCoordinates newCoordsb = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY()+ yDelta);
 						coords.add(newCoordsb);
-						log.trace("using atom X: {}", x);
+						log.trace("using atom {} X: {}", a.getSymbol(), x);
 					} else {
 						AtomCoordinates coordsToAdd = AtomCoordinates.valueOf(a.getAtomCoordinates().getX(), a.getAtomCoordinates().getY());
 						coords.add(coordsToAdd);
-						log.trace("using atom X: {}", a.getAtomCoordinates().getX());
+						log.trace("using atom {} X: {}", a.getSymbol(), a.getAtomCoordinates().getX());
 					}
 					if( currentPaddingLeft > 0) {
 						x = a.getAtomCoordinates().getX() - currentPaddingLeft;
@@ -1405,11 +1405,11 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						coords.add(newCoords);
 						AtomCoordinates newCoordsb = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() +yDelta);
 						coords.add(newCoordsb);
-						log.trace("using atom X: {}", x);
+						log.trace("using atom {} X: {}", a.getSymbol(), x);
 					}  else {
 						AtomCoordinates coordsToAdd = AtomCoordinates.valueOf(a.getAtomCoordinates().getX(), a.getAtomCoordinates().getY());
 						coords.add(coordsToAdd);
-						log.trace("using atom X: {}", a.getAtomCoordinates().getX());
+						log.trace("using atom {} X: {}", a.getSymbol(), a.getAtomCoordinates().getX());
 					}
 				});
 
