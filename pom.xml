@@ -2,7 +2,7 @@
 <!--
   ~ NCATS-MOLWITCH-RENDERER
   ~
-  ~ Copyright 2025 NIH/NCATS
+  ~ Copyright 2026 NIH/NCATS
   ~
   ~    Licensed under the Apache License, Version 2.0 (the "License");
   ~    you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
     <groupId>gov.nih.ncats</groupId>
     <artifactId>molwitch-renderer</artifactId>
-    <version>1.0.19</version>
+    <version>1.0.20</version>
 
     <name>Molwitch Renderer</name>
 
