@@ -68,6 +68,10 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	private static final double NESTED_BRACKET_EDGE_GAP_FRACTION = 0.20D;
 	private static final double MIN_NESTED_BRACKET_EDGE_GAP = 0.12D;
 	private static final double MAX_NESTED_BRACKET_EDGE_GAP = 0.25D;
+	private static final float BRACKET_ARM_OVERLAP_RISK_GAP_FRACTION = 0.40F;
+	private static final float BRACKET_ARM_CAPPED_GAP_FRACTION = 0.20F;
+	private static final long WIDE_SINGLE_SGROUP_ATOM_COUNT_CUTOFF = 6L;
+	private static final double WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP = 0.75D;
 
 	public static final ARGBColor transparent = new ARGBColor(0, 0, 0, 0);
 	private String protProperty = "AMINO_ACID_SEQUENCE";
@@ -1273,22 +1277,18 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 		g2.setStroke(solidThin);
 
-		float bracketWidth= nrect.width/10;
-
-		float len1 = (ncoord[0] - ncoord[6]) * (ncoord[0] - ncoord[6]); // +
-		len1 = (float) Math.sqrt(len1) / 2;
-		float len2 = (ncoord[6] - ncoord[4]) * (ncoord[6] - ncoord[4])
-				+ (ncoord[5] - ncoord[7]) * (ncoord[5] - ncoord[7]);
-		len2 = (float) Math.sqrt(len2);
-		float bsize = .2f;
-
+		float defaultBracketArmLength = nrect.width / 10;
+		float leftBracketArmLength = computeBracketArmLength(defaultBracketArmLength, ncoord[0], 1F,
+				centerTransform, solidThin, cg);
+		float rightBracketArmLength = computeBracketArmLength(defaultBracketArmLength, ncoord[4], -1F,
+				centerTransform, solidThin, cg);
 
 		g2.drawP(ggen.makeLine(ncoord[0], ncoord[1], ncoord[2], ncoord[3]));
-		g2.drawP(ggen.makeLine(ncoord[0], ncoord[1], ncoord[0] + len1 * bsize, ncoord[1]));
-		g2.drawP(ggen.makeLine(ncoord[2], ncoord[3], ncoord[2] + len1 * bsize, ncoord[3]));
+		g2.drawP(ggen.makeLine(ncoord[0], ncoord[1], ncoord[0] + leftBracketArmLength, ncoord[1]));
+		g2.drawP(ggen.makeLine(ncoord[2], ncoord[3], ncoord[2] + leftBracketArmLength, ncoord[3]));
 		g2.drawP(ggen.makeLine(ncoord[4], ncoord[5], ncoord[6], ncoord[7]));
-		g2.drawP(ggen.makeLine(ncoord[4], ncoord[5], ncoord[4] - len1 * bsize, ncoord[5]));
-		g2.drawP(ggen.makeLine(ncoord[6], ncoord[7], ncoord[6] - len1 * bsize, ncoord[7]));
+		g2.drawP(ggen.makeLine(ncoord[4], ncoord[5], ncoord[4] - rightBracketArmLength, ncoord[5]));
+		g2.drawP(ggen.makeLine(ncoord[6], ncoord[7], ncoord[6] - rightBracketArmLength, ncoord[7]));
 		float[] transformed = new float[4];
 
 		centerTransform.transform(new float[] {minX, minY, maxX, maxY}, 0, transformed,0, 2);
@@ -1317,6 +1317,34 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				drawString(g2, " " + sups, ncoord[6], ncoord[7] + h1 * .33f);
 			}
 		}
+	}
+
+	private float computeBracketArmLength(float defaultArmLength, float bracketX, float atomDirection,
+			AffineTransformParent centerTransform, BasicStroke stroke, SGroup sgroup) {
+		float closestAtomGap = Float.POSITIVE_INFINITY;
+		for(Atom atom : sgroup.getAtoms().collect(Collectors.toList())){
+			float[] atomCoordinate = new float[] {(float) atom.getAtomCoordinates().getX(),
+					(float) atom.getAtomCoordinates().getY()};
+			float[] transformedAtom = new float[2];
+			centerTransform.transform(atomCoordinate, 0, transformedAtom, 0, 1);
+			float atomGap = atomDirection > 0F ? transformedAtom[0] - bracketX : bracketX - transformedAtom[0];
+			if(atomGap > 0F){
+				closestAtomGap = Math.min(closestAtomGap, atomGap);
+			}
+		}
+		return capBracketArmLength(defaultArmLength, closestAtomGap, stroke.getLineWidth());
+	}
+
+	static float capBracketArmLength(float defaultArmLength, float closestAtomGap, float strokeWidth) {
+		float armLength = defaultArmLength;
+		if(Float.isFinite(closestAtomGap) && closestAtomGap > 0F
+				&& defaultArmLength > closestAtomGap * BRACKET_ARM_OVERLAP_RISK_GAP_FRACTION){
+			armLength = closestAtomGap * BRACKET_ARM_CAPPED_GAP_FRACTION;
+		}
+		if(defaultArmLength <= strokeWidth){
+			return armLength;
+		}
+		return Math.max(strokeWidth, armLength);
 	}
 
 	private Rectangle2D.Float computeBracketCoordsFor(SGroup cg, double bondWidth, Chemical chemical){
@@ -1431,6 +1459,15 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					log.trace("added nested bracket padding. left: {}; right: {}", nestedBracketPadding.left, nestedBracketPadding.right);
 				}
 
+				NestedBracketPadding wideSingleSgroupPadding = computeWideSingleSgroupEdgePadding(cg, chemical, rt);
+				if(wideSingleSgroupPadding.hasPadding()){
+					rt = new Rectangle2D.Double(rt.getX() - wideSingleSgroupPadding.left, rt.getY(),
+							rt.getWidth() + wideSingleSgroupPadding.left + wideSingleSgroupPadding.right,
+							rt.getHeight());
+					log.trace("added wide single SGroup bracket padding. left: {}; right: {}",
+							wideSingleSgroupPadding.left, wideSingleSgroupPadding.right);
+				}
+
 				double xLeftFudgeFactor = 0;
 				if( cg.getAtoms().count()> bracketPositionFudgeFactorCutoff) {
 					xLeftFudgeFactor = this.bracketPositioningLeftFudgeFactor != null
@@ -1480,6 +1517,32 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				(float) rt.getY(), (float) rt.getWidth(),
 				(float) rt.getHeight());
 		return r;
+	}
+
+	private NestedBracketPadding computeWideSingleSgroupEdgePadding(SGroup sgroup, Chemical chemical, Rectangle2D bounds) {
+		long bracketedSgroupCount = chemical.getSGroups().stream()
+				.filter(g -> g.getType() != SGroupType.SUPERATOM_OR_ABBREVIATION
+						&& g.bracketsSupported() && g.hasBrackets())
+				.count();
+		if(bracketedSgroupCount != 1L || sgroup.getAtoms().count() <= WIDE_SINGLE_SGROUP_ATOM_COUNT_CUTOFF){
+			return NestedBracketPadding.none();
+		}
+		double minAtomX = sgroup.getAtoms()
+				.mapToDouble(atom -> atom.getAtomCoordinates().getX())
+				.min()
+				.orElse(Double.POSITIVE_INFINITY);
+		double maxAtomX = sgroup.getAtoms()
+				.mapToDouble(atom -> atom.getAtomCoordinates().getX())
+				.max()
+				.orElse(Double.NEGATIVE_INFINITY);
+		if(minAtomX == Double.POSITIVE_INFINITY || maxAtomX == Double.NEGATIVE_INFINITY){
+			return NestedBracketPadding.none();
+		}
+		double leftGap = minAtomX - bounds.getX();
+		double rightGap = bounds.getMaxX() - maxAtomX;
+		double leftPadding = Math.max(0D, WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP - leftGap);
+		double rightPadding = Math.max(0D, WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP - rightGap);
+		return new NestedBracketPadding(leftPadding, rightPadding);
 	}
 
 	private NestedBracketPadding computeNestedBracketPadding(SGroup parent, Chemical chemical, Double bracketHeight) {

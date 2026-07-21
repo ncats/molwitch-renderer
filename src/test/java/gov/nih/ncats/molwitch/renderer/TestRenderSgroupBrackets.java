@@ -128,6 +128,57 @@ public class TestRenderSgroupBrackets {
     }
 
     @Test
+    public void wideSingleSgroupBracketsClearNearestRepeatedAtoms() throws Exception {
+        double slope = 0.01;
+        double intercept = 0.455;
+
+        assertBracketGapsAtLeast("14bb185c-ed7a-4b4f-b496-e085579aa4c0", 0, slope, intercept, 0.75F);
+        assertBracketGapsAtLeast("1680fcfc-81b9-486e-85aa-1e2cdb348d07", 0, slope, intercept, 0.75F);
+        assertBracketGapsAtLeast("04cb3ecb-9419-4b07-89e8-19ed0fbac5e6", 0, slope, intercept, 0.75F);
+
+        Chemical sodiumAcetate = Chemical.parseMol(new File(getClass().getResource("/sodium_acetate.mol").getFile()));
+        SGroup sodiumWater = sodiumAcetate.getSGroups().get(0);
+        Rectangle2D.Float sodiumRect = getBracketRect(sodiumAcetate, sodiumWater, slope, intercept);
+        float sodiumAtomGap = getRightAtomGap(sodiumWater, sodiumRect);
+
+        Assert.assertEquals("Sodium acetate hydrate should keep its existing closing bracket atom gap",
+                0.42F, sodiumAtomGap, 0.001F);
+    }
+
+    @Test
+    public void renderClosingBracketArmOverlapExamples() {
+        RendererOptions rendererOptions = new RendererOptions();
+        double slope = 0.01;
+        double intercept = 0.455;
+        rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
+        rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
+        NchemicalRenderer renderer = new NchemicalRenderer(rendererOptions);
+        List<String> chemicalNames = Arrays.asList("14bb185c-ed7a-4b4f-b496-e085579aa4c0",
+                "1680fcfc-81b9-486e-85aa-1e2cdb348d07", "04cb3ecb-9419-4b07-89e8-19ed0fbac5e6");
+        List<Boolean> results = chemicalNames.stream()
+                .map(n -> {
+                    try {
+                        String name = String.format("/%s.mol", n);
+                        Chemical c = Chemical.parseMol(new File(getClass().getResource(name).getFile()));
+                        BufferedImage actual = renderer.createImage(c, 600);
+                        Double lastUsed = renderer.getLastUsedFactor();
+                        String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_intercept_%.2f_factor_%.2f.png",
+                                MolWitch.getModuleName(), n, slope, intercept, lastUsed);
+                        File imageFile = new File(imageFileName);
+                        imageFile.getParentFile().mkdirs();
+                        ImageIO.write(actual, "PNG", imageFile);
+                        log.info("wrote file to {}", imageFile.getAbsolutePath());
+                        return imageFile.exists();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+        Assert.assertTrue(results.stream().allMatch(r -> r));
+    }
+
+    @Test
     public void renderWithBracketsCoordsOnOff() {
         RendererOptions rendererOptions = new RendererOptions();
         double slope =0.0186;
@@ -276,6 +327,36 @@ public class TestRenderSgroupBrackets {
             Point2D boundingBox = NchemicalRenderer.getCoordinateSpread(chemical);
             Assert.assertEquals(expectedXSpreads.get(i), boundingBox.getX(), 0.001);
          }
+    }
+
+    private void assertBracketGapsAtLeast(String resourceName, int sgroupIndex, double slope, double intercept,
+            float expectedGap) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(sgroupIndex);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+        float leftAtomGap = getLeftAtomGap(sgroup, rect);
+        float rightAtomGap = getRightAtomGap(sgroup, rect);
+
+        Assert.assertTrue("Wide single SGroup opening bracket should clear the nearest repeated atom",
+                leftAtomGap >= expectedGap - 0.001F);
+        Assert.assertTrue("Wide single SGroup closing bracket should clear the nearest repeated atom",
+                rightAtomGap >= expectedGap - 0.001F);
+    }
+
+    private float getLeftAtomGap(SGroup sgroup, Rectangle2D.Float rect) {
+        double minAtomX = sgroup.getAtoms()
+                .mapToDouble(atom -> atom.getAtomCoordinates().getX())
+                .min()
+                .orElseThrow(IllegalStateException::new);
+        return (float) (minAtomX - rect.getX());
+    }
+
+    private float getRightAtomGap(SGroup sgroup, Rectangle2D.Float rect) {
+        double maxAtomX = sgroup.getAtoms()
+                .mapToDouble(atom -> atom.getAtomCoordinates().getX())
+                .max()
+                .orElseThrow(IllegalStateException::new);
+        return (float) (rect.getMaxX() - maxAtomX);
     }
 
     private BracketPadding getBracketPadding(String resourceName, int sgroupIndex, double slope, double intercept) throws Exception {
