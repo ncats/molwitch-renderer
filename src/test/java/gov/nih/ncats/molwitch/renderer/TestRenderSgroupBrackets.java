@@ -2,14 +2,17 @@ package gov.nih.ncats.molwitch.renderer;
 
 import gov.nih.ncats.molwitch.Chemical;
 import gov.nih.ncats.molwitch.MolWitch;
+import gov.nih.ncats.molwitch.SGroup;
 import org.junit.Assert;
 import org.junit.Test;
 
 import javax.imageio.ImageIO;
 import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -91,6 +94,40 @@ public class TestRenderSgroupBrackets {
     }
 
     @Test
+    public void largeCoordinateSpreadDoesNotOverPadHydrateSgroupBrackets() throws Exception {
+        double slope = 0.01;
+        double intercept = 0.455;
+
+        BracketPadding sodiumWater = getBracketPadding("sodium_acetate", 0, slope, intercept);
+        BracketPadding y3O2 = getBracketPadding("Y3NG9WF08W", 0, slope, intercept);
+        BracketPadding y3Water = getBracketPadding("Y3NG9WF08W", 5, slope, intercept);
+
+        Assert.assertEquals(0.9585, sodiumWater.left, 0.001);
+        Assert.assertEquals(0.9600, y3O2.right, 0.001);
+        Assert.assertEquals(0.9600, y3Water.left, 0.001);
+        Assert.assertTrue("Y3 O2- right padding should stay comparable to sodium acetate hydrate left padding",
+                y3O2.right <= sodiumWater.left + 0.01);
+        Assert.assertTrue("Y3 H2O left padding should stay comparable to sodium acetate hydrate left padding",
+                y3Water.left <= sodiumWater.left + 0.01);
+    }
+
+    @Test
+    public void nestedY3SgroupRightBracketEdgesDoNotOverlap() throws Exception {
+        double slope = 0.01;
+        double intercept = 0.455;
+
+        Rectangle2D.Float alOInner = getBracketRect("Y3NG9WF08W", 0, slope, intercept);
+        Rectangle2D.Float alOOuter = getBracketRect("Y3NG9WF08W", 1, slope, intercept);
+        Rectangle2D.Float siOInner = getBracketRect("Y3NG9WF08W", 2, slope, intercept);
+        Rectangle2D.Float siOOuter = getBracketRect("Y3NG9WF08W", 3, slope, intercept);
+
+        Assert.assertTrue("Nested Al/O right bracket edges should not overlap",
+                alOOuter.getMaxX() - alOInner.getMaxX() >= 0.12);
+        Assert.assertTrue("Nested Si/O right bracket edges should not overlap",
+                siOOuter.getMaxX() - siOInner.getMaxX() >= 0.12);
+    }
+
+    @Test
     public void renderWithBracketsCoordsOnOff() {
         RendererOptions rendererOptions = new RendererOptions();
         double slope =0.0186;
@@ -131,6 +168,38 @@ public class TestRenderSgroupBrackets {
         Assert.assertTrue(results.stream().allMatch(r -> r));
     }
 
+    @Test
+    public void renderChallengeWithBrackets() {
+        RendererOptions rendererOptions = new RendererOptions();
+        double slope =0.01;
+        double intercept = 0.455;
+        rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
+        rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
+        NchemicalRenderer renderer = new NchemicalRenderer(rendererOptions);
+        List<String> chemicalNames = Arrays.asList("Y3NG9WF08W");
+        List<Boolean> results = chemicalNames.stream()
+                .map(n -> {
+                    try {
+                        String name = String.format("/%s.mol", n);
+                        Chemical c = Chemical.parseMol(new File(getClass().getResource(name).getFile()));
+                        Point2D.Double spread = NchemicalRenderer.getCoordinateSpread(c);
+                        BufferedImage actual = renderer.createImage(c, 600);
+                        Double lastUsed = renderer.getLastUsedFactor();
+                        String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_intercept_%.2f_factor_%.2f_on.png",
+                                MolWitch.getModuleName(), n, slope, intercept, lastUsed);
+                        File imageFile = new File(imageFileName);
+                        imageFile.getParentFile().mkdirs();
+                        ImageIO.write(actual, "PNG", imageFile);
+                        log.info("wrote file to {} spread: {}", imageFile.getAbsolutePath(), spread.getX());
+                                return imageFile.exists();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+        Assert.assertTrue(results.stream().allMatch(r -> r));
+    }
     @Test
     public void renderWithBracketsMoleculeWithIssues() {
         RendererOptions rendererOptions = new RendererOptions();
@@ -209,6 +278,48 @@ public class TestRenderSgroupBrackets {
          }
     }
 
+    private BracketPadding getBracketPadding(String resourceName, int sgroupIndex, double slope, double intercept) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(sgroupIndex);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+        double minAtomX = sgroup.getAtoms()
+                .mapToDouble(atom -> atom.getAtomCoordinates().getX())
+                .min()
+                .orElseThrow(IllegalStateException::new);
+        double maxAtomX = sgroup.getAtoms()
+                .mapToDouble(atom -> atom.getAtomCoordinates().getX())
+                .max()
+                .orElseThrow(IllegalStateException::new);
+        return new BracketPadding(minAtomX - rect.getX(), rect.getMaxX() - maxAtomX);
+    }
+
+    private Rectangle2D.Float getBracketRect(String resourceName, int sgroupIndex, double slope, double intercept) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        return getBracketRect(chemical, chemical.getSGroups().get(sgroupIndex), slope, intercept);
+    }
+
+    private Rectangle2D.Float getBracketRect(Chemical chemical, SGroup sgroup, double slope, double intercept) throws Exception {
+        RendererOptions options = new RendererOptions();
+        options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
+        options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
+        NchemicalRenderer renderer = new NchemicalRenderer(options);
+        renderer.setBracketPositioningSlope(slope);
+        renderer.setBracketPositioningIntercept(intercept);
+
+        Method compute = NchemicalRenderer.class.getDeclaredMethod("computeBracketCoordsFor", SGroup.class, double.class, Chemical.class);
+        compute.setAccessible(true);
+        return (Rectangle2D.Float) compute.invoke(renderer, sgroup, 0D, chemical);
+    }
+
+    private static class BracketPadding {
+        private final double left;
+        private final double right;
+
+        private BracketPadding(double left, double right) {
+            this.left = left;
+            this.right = right;
+        }
+    }
 
     //P88XT4IS4D
 }

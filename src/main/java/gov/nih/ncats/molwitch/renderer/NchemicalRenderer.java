@@ -62,6 +62,12 @@ import org.slf4j.LoggerFactory;
  */
 class NchemicalRenderer extends AbstractChemicalRenderer {
 	private static final Logger log = LoggerFactory.getLogger(NchemicalRenderer.class);
+	// Label padding should not grow with disconnected salt/hydrate width.
+	private static final double MAX_BRACKET_LABEL_PADDING_SPREAD = 2.5D;
+	private static final double NESTED_BRACKET_EDGE_EPSILON = 0.001D;
+	private static final double NESTED_BRACKET_EDGE_GAP_FRACTION = 0.20D;
+	private static final double MIN_NESTED_BRACKET_EDGE_GAP = 0.12D;
+	private static final double MAX_NESTED_BRACKET_EDGE_GAP = 0.25D;
 
 	public static final ARGBColor transparent = new ARGBColor(0, 0, 0, 0);
 	private String protProperty = "AMINO_ACID_SEQUENCE";
@@ -1378,14 +1384,15 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 							charsLeft += Math.max(attachedText.get(i).length()/2, 1);
 						}
 					}
-					double perChar = bracketPositioningSlope * coordinateSpread.x + bracketPositioningIntercept;
+					double effectiveSpread = Math.min(coordinateSpread.x, MAX_BRACKET_LABEL_PADDING_SPREAD);
+					double perChar = bracketPositioningSlope * effectiveSpread + bracketPositioningIntercept;
 					double yDelta = bracketHeight[0] == null ?  0.1 : bracketHeight[0]/2;
 					lastUsedFactor = perChar;
 					//see how we draw H
 					double currentPaddingLeft = charsLeft * perChar;
 					double currentPaddingRight = charsRight * perChar;
 					if( currentPaddingRight > 0 ) {
-						log.trace("coordinateSpread.x: {}, perChar: {}, charsRight: {}, charsLeft: {}", coordinateSpread.x, perChar, charsRight, charsLeft);
+						log.trace("coordinateSpread.x: {}, effectiveSpread: {}, perChar: {}, charsRight: {}, charsLeft: {}", coordinateSpread.x, effectiveSpread, perChar, charsRight, charsLeft);
 						x = a.getAtomCoordinates().getX() + currentPaddingRight;
 						log.trace("using padding of {} to shift X right from {} to {}", currentPaddingRight, a.getAtomCoordinates().getX(), x);
 						AtomCoordinates newCoords = AtomCoordinates.valueOf(x, a.getAtomCoordinates().getY() - yDelta);
@@ -1416,6 +1423,13 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				rt =  BoundingBox.computePaddedBoundingBoxForCoordinates(coords, 0);
 				log.trace("bounding box for SGroup brackets. x = {}; y = {}; width = {}; height = {};.... bracketPositionFudgeFactorCutoff: {}",
 						rt.getX(), rt.getY(), rt.getWidth(), rt.getHeight(),bracketPositionFudgeFactorCutoff);
+
+				NestedBracketPadding nestedBracketPadding = computeNestedBracketPadding(cg, chemical, bracketHeight[0]);
+				if(nestedBracketPadding.hasPadding()){
+					rt = new Rectangle2D.Double(rt.getX() - nestedBracketPadding.left, rt.getY(),
+							rt.getWidth() + nestedBracketPadding.left + nestedBracketPadding.right, rt.getHeight());
+					log.trace("added nested bracket padding. left: {}; right: {}", nestedBracketPadding.left, nestedBracketPadding.right);
+				}
 
 				double xLeftFudgeFactor = 0;
 				if( cg.getAtoms().count()> bracketPositionFudgeFactorCutoff) {
@@ -1468,6 +1482,115 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		return r;
 	}
 
+	private NestedBracketPadding computeNestedBracketPadding(SGroup parent, Chemical chemical, Double bracketHeight) {
+		BracketEdges parentEdges = getBracketEdges(parent);
+		if(parentEdges == null){
+			return NestedBracketPadding.none();
+		}
+
+		double edgeGap = computeNestedBracketEdgeGap(bracketHeight);
+		double leftPadding = 0D;
+		double rightPadding = 0D;
+		for(SGroup child : chemical.getSGroups()){
+			if(child == parent || child.getType() == SGroupType.SUPERATOM_OR_ABBREVIATION
+					|| !child.bracketsSupported() || !child.hasBrackets()){
+				continue;
+			}
+
+			BracketEdges childEdges = getBracketEdges(child);
+			if(childEdges == null || !bracketContains(parentEdges, childEdges)){
+				continue;
+			}
+			if(edgesOverlap(parentEdges.left, childEdges.left)){
+				leftPadding = Math.max(leftPadding, edgeGap);
+			}
+			if(edgesOverlap(parentEdges.right, childEdges.right)){
+				rightPadding = Math.max(rightPadding, edgeGap);
+			}
+		}
+		return new NestedBracketPadding(leftPadding, rightPadding);
+	}
+
+	private double computeNestedBracketEdgeGap(Double bracketHeight) {
+		double height = bracketHeight == null ? 1D : bracketHeight;
+		double edgeGap = height * NESTED_BRACKET_EDGE_GAP_FRACTION;
+		return Math.min(MAX_NESTED_BRACKET_EDGE_GAP, Math.max(MIN_NESTED_BRACKET_EDGE_GAP, edgeGap));
+	}
+
+	private boolean bracketContains(BracketEdges parent, BracketEdges child) {
+		boolean containsX = parent.left <= child.left + NESTED_BRACKET_EDGE_EPSILON
+				&& parent.right + NESTED_BRACKET_EDGE_EPSILON >= child.right;
+		boolean containsY = parent.top <= child.top + NESTED_BRACKET_EDGE_EPSILON
+				&& parent.bottom + NESTED_BRACKET_EDGE_EPSILON >= child.bottom;
+		boolean larger = child.left - parent.left > NESTED_BRACKET_EDGE_EPSILON
+				|| parent.right - child.right > NESTED_BRACKET_EDGE_EPSILON
+				|| child.top - parent.top > NESTED_BRACKET_EDGE_EPSILON
+				|| parent.bottom - child.bottom > NESTED_BRACKET_EDGE_EPSILON;
+		return containsX && containsY && larger;
+	}
+
+	private boolean edgesOverlap(double parentEdge, double childEdge) {
+		return Math.abs(parentEdge - childEdge) <= NESTED_BRACKET_EDGE_EPSILON;
+	}
+
+	private BracketEdges getBracketEdges(SGroup sgroup) {
+		if(!sgroup.hasBrackets()){
+			return null;
+		}
+		double left = Double.POSITIVE_INFINITY;
+		double right = Double.NEGATIVE_INFINITY;
+		double top = Double.POSITIVE_INFINITY;
+		double bottom = Double.NEGATIVE_INFINITY;
+		for(SGroupBracket bracket : sgroup.getBrackets()){
+			left = Math.min(left, bracket.getPoint1().getX());
+			left = Math.min(left, bracket.getPoint2().getX());
+			right = Math.max(right, bracket.getPoint1().getX());
+			right = Math.max(right, bracket.getPoint2().getX());
+			top = Math.min(top, bracket.getPoint1().getY());
+			top = Math.min(top, bracket.getPoint2().getY());
+			bottom = Math.max(bottom, bracket.getPoint1().getY());
+			bottom = Math.max(bottom, bracket.getPoint2().getY());
+		}
+		if(left == Double.POSITIVE_INFINITY || right == Double.NEGATIVE_INFINITY
+				|| top == Double.POSITIVE_INFINITY || bottom == Double.NEGATIVE_INFINITY){
+			return null;
+		}
+		return new BracketEdges(left, right, top, bottom);
+	}
+
+	private static class NestedBracketPadding {
+		private static final NestedBracketPadding NONE = new NestedBracketPadding(0D, 0D);
+
+		private final double left;
+		private final double right;
+
+		private NestedBracketPadding(double left, double right) {
+			this.left = left;
+			this.right = right;
+		}
+
+		private static NestedBracketPadding none() {
+			return NONE;
+		}
+
+		private boolean hasPadding() {
+			return left > 0D || right > 0D;
+		}
+	}
+
+	private static class BracketEdges {
+		private final double left;
+		private final double right;
+		private final double top;
+		private final double bottom;
+
+		private BracketEdges(double left, double right, double top, double bottom) {
+			this.left = left;
+			this.right = right;
+			this.top = top;
+			this.bottom = bottom;
+		}
+	}
 
 	public static class DisplayLabel {
 		public Rectangle2D bbox;
