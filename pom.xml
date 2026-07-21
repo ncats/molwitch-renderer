@@ -77,6 +77,8 @@
 
     <properties>
         <gpg.skip>true</gpg.skip>
+        <jackson.version>2.21.4</jackson.version>
+        <jackson.annotations.version>2.21</jackson.annotations.version>
     </properties>
 
     <scm>
@@ -92,19 +94,19 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>2.19.2</version>
+            <version>${jackson.version}</version>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.19.2</version>
+            <version>${jackson.version}</version>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>2.19.2</version>
+            <version>${jackson.annotations.version}</version>
             <optional>true</optional>
         </dependency>
        <dependency>

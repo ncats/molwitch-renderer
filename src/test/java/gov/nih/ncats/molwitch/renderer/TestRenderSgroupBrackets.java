@@ -23,7 +23,7 @@ public class TestRenderSgroupBrackets {
     public void renderWithBracketsSet() {
         RendererOptions options = new RendererOptions();
         options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, 0.03);
-        options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, 0.455);
+        options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, 0.6);
         NchemicalRenderer renderer = new NchemicalRenderer(options);
 
         List<String> chemicalNames = Arrays.asList("sodium_acetate", "NFX970DSI2", "V341SPY84U", "J3OC7JVS54", "4VN69WUP7N",
@@ -56,10 +56,13 @@ public class TestRenderSgroupBrackets {
     public void renderWithBracketsVaryingFactors() {
         List<Double> slopesToTest = Arrays.asList(0.01, 0.0186, 0.02); //, 0.5, 0.9, 1.0, 1.3, 1.5
         List<Double> interceptsToTest =Arrays.asList(0.3, 0.4, 0.455, 0.6);// Arrays.asList(0.1, 0.2, 0.5, 0.7); //Arrays.asList(1.0, 5.0, 7.5, 10.0, 12.0, 15.0);//
-        NchemicalRenderer renderer = new NchemicalRenderer();
         for(double slope : slopesToTest) {
             for (double intercept : interceptsToTest) {
-                renderer.setBracketPositioningSlope(slope);
+                RendererOptions options = new RendererOptions();
+                options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
+                options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
+                NchemicalRenderer renderer = new NchemicalRenderer(options);
+
                 List<String> chemicalNames = Arrays.asList("sodium_acetate", "potassium_acetate_hydrate");
                 List<Boolean> results = chemicalNames.stream()
                         .map(n -> {
