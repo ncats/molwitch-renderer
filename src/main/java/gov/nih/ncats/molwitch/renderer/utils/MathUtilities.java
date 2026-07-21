@@ -79,7 +79,7 @@ public class MathUtilities {
         if(value == 0 || scale == 0.0) {
             return 0;
         }
-        double initialResult = ((float) value) * scale;
+        double initialResult = value * scale;
         if( initialResult > Integer.MAX_VALUE || initialResult < Integer.MIN_VALUE) {
             String msg = "Error multiplying " + value + " by " + scale + "(result is too large or too small)";
             logger.severe( msg);
@@ -97,7 +97,7 @@ public class MathUtilities {
             logger.severe(msg);
             throw new ArithmeticException(msg);
         } else if( result < (-1 *Float.MAX_VALUE)) {
-            String msg = "Error performing operation (result [" + result + "] is too small)";;
+            String msg = "Error performing operation (result [" + result + "] is too small)";
             logger.severe(msg);
             throw new ArithmeticException(msg);
         }

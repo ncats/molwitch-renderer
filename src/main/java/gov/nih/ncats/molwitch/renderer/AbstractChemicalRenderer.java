@@ -1,21 +1,3 @@
-/*
- * NCATS-MOLWITCH-RENDERER
- *
- * Copyright 2026 NIH/NCATS
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *        http://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- */
-
 package gov.nih.ncats.molwitch.renderer;
 
 import java.awt.AlphaComposite;
@@ -56,7 +38,7 @@ import org.slf4j.LoggerFactory;
 	
 	
 	 static final ConcurrentMap<Integer, BufferedImageOp> OperCache = 
-		        new ConcurrentHashMap<Integer, BufferedImageOp>();
+		        new ConcurrentHashMap<>();
 	 static final ColorSpace cs = ColorSpace.getInstance(ColorSpace.CS_GRAY);
 	 static final ColorConvertOp GREYOP = new ColorConvertOp(cs, null);  
 	 
@@ -67,7 +49,7 @@ import org.slf4j.LoggerFactory;
 	 boolean borderViz=false;
      ARGBColor backgroundColor = new ARGBColor(0,0,0,0);
      ARGBColor borderColor=new ARGBColor(Color.black);
-	 Set<String> _displayProperties = new LinkedHashSet<String>();
+	 Set<String> _displayProperties = new LinkedHashSet<>();
 
 		
 	  
@@ -221,18 +203,12 @@ import org.slf4j.LoggerFactory;
        if(round){
     	   Shape shape = new RoundRectangle2D.Double
     	            (x, y, (double)wid, (double)hit, wid/4., hit/4.);
-    	        //g.setComposite(AlphaComposite.Clear);
-    	        //g.setPaint(new Color(0,0,0,0));
-    	        //g.fillRect(x, y, wid, hit);
     	        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
     			g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
     			g.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
     			g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-    	        
-            //g.setComposite(AlphaComposite.Src);
-            //g.fill(shape);
+
             g.setPaint(getBackgroundColor().asColor());
-            //g.setComposite(AlphaComposite.SrcAtop);
             g.fill(shape);
 	        if (this.getBorderVisible()) {
 	            g.setPaint(this.getBorderColor().asColor());

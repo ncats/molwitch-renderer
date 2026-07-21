@@ -1,21 +1,3 @@
-/*
- * NCATS-MOLWITCH-RENDERER
- *
- * Copyright 2026 NIH/NCATS
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *        http://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- */
-
 package gov.nih.ncats.molwitch.renderer;
 
 import java.awt.geom.Rectangle2D;
@@ -199,20 +181,6 @@ class BoundingBox {
 	        if (a.length == 0) throw new IllegalArgumentException("array is of length 0");
 
 	        int n = a.length;
-	        //katzelda- don't need a defensive copy
-	        //since we just created it ourselves
-	        // defensive copy
-//	        
-//	        Point2D[] a = new Point2D[n];
-//	        for (int i = 0; i < n; i++) {
-//	            if (points[i] == null)
-//	                throw new IllegalArgumentException("points[" + i + "] is null");
-//	            a[i] = points[i];
-//	        }
-
-	        // preprocess so that a[0] has lowest y-coordinate; break ties by x-coordinate
-	        // a[0] is an extreme point of the convex hull
-	        // (alternatively, could do easily in linear time)
 	        Arrays.sort(a);
 
 	        // sort by polar angle with respect to base point a[0],

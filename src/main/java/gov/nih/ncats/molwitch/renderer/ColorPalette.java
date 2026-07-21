@@ -1,25 +1,6 @@
-/*
- * NCATS-MOLWITCH-RENDERER
- *
- * Copyright 2026 NIH/NCATS
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *        http://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- */
-
 package gov.nih.ncats.molwitch.renderer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.*;
@@ -27,8 +8,12 @@ import java.util.stream.Collectors;
 
 public class ColorPalette {
 
-    private static ARGBColor STEREO_COLOR_UNKNOWN = new ARGBColor(255, 0, 0, 255);
-    private static ARGBColor  STEREO_COLOR_KNOWN = new ARGBColor(0, 178, 0, 255);
+    private static final ARGBColor STEREO_COLOR_UNKNOWN = new ARGBColor(255, 0, 0, 255);
+    private static final ARGBColor  STEREO_COLOR_KNOWN = new ARGBColor(0, 178, 0, 255);
+
+    private static final String ATOM_COLORS_INDICATION = "atomColors";
+    private static final String STEREO_COLOR_UNKNOWN_INDICATION = "stereoColorKnown";
+    private static final String HIGHLIGHT_COLOR_INDICATION = "highlightColors";
 
     private static final List<ARGBColor> DEFAULT_HIGHLIGHT_COLORS= Arrays.asList(
             new ARGBColor(255,179,179,255),
@@ -44,7 +29,7 @@ public class ColorPalette {
             new ARGBColor(255,179,179,255),
             new ARGBColor(194,255,179,255)
     );
-    private static Map<String, ARGBColor> DEFAULT_ATOM_COLORS = new HashMap<>();
+    private static final Map<String, ARGBColor> DEFAULT_ATOM_COLORS = new HashMap<>();
     static {
         DEFAULT_ATOM_COLORS.put("Cl", new ARGBColor(54, 180, 73, 255));
         DEFAULT_ATOM_COLORS.put("F", new ARGBColor(54, 180, 73, 255));
@@ -62,7 +47,7 @@ public class ColorPalette {
     }
 
 
-    private Map<String, ARGBColor> atomColors;
+    private final Map<String, ARGBColor> atomColors;
 
     private ARGBColor stereoColorKnown;
     private ARGBColor stereoColorUnknown;
@@ -82,21 +67,21 @@ public class ColorPalette {
     public static ColorPalette createFromMap(Map<String,?> map){
         ColorPalette palette = new ColorPalette();
 
-        if(map.containsKey("atomColors")){
-            Map<String,String> colorOverrides= (Map<String,String> )map.get("atomColors");
+        if(map.containsKey(ATOM_COLORS_INDICATION)){
+            Map<String,String> colorOverrides= (Map<String,String> )map.get(ATOM_COLORS_INDICATION);
             for(Map.Entry<String,String> e : colorOverrides.entrySet()){
                 palette.atomColors.put(e.getKey(), new ARGBColor(e.getValue()));
             }
         }
-        if(map.containsKey("stereoColorKnown")){
-            palette.stereoColorKnown = new ARGBColor((String)map.get("stereoColorKnown"));
+        if(map.containsKey(STEREO_COLOR_UNKNOWN_INDICATION)){
+            palette.stereoColorKnown = new ARGBColor((String)map.get(STEREO_COLOR_UNKNOWN_INDICATION));
         }
-        if(map.containsKey("stereoColorUnknown")){
-            palette.stereoColorUnknown = new ARGBColor((String) map.get("stereoColorUnknown"));
+        if(map.containsKey( STEREO_COLOR_UNKNOWN_INDICATION)){
+            palette.stereoColorUnknown = new ARGBColor((String) map.get(STEREO_COLOR_UNKNOWN_INDICATION));
         }
-        if(map.containsKey("highlightColors")){
-            palette.highlightColors = ((List<String>) map.get("highlightColors")).stream()
-                                        .map(v-> new ARGBColor(v))
+        if(map.containsKey(HIGHLIGHT_COLOR_INDICATION)){
+            palette.highlightColors = ((List<String>) map.get(HIGHLIGHT_COLOR_INDICATION)).stream()
+                                        .map(ARGBColor::new)
                                         .collect(Collectors.toList());
         }
         return palette;
@@ -110,16 +95,16 @@ public class ColorPalette {
             for(Map.Entry<String, ARGBColor> e: atomColors.entrySet()){
                 atomMap.put(e.getKey(), e.getValue().asHex());
             }
-            map.put("atomColors", atomMap);
+            map.put(ATOM_COLORS_INDICATION, atomMap);
         }
         if(!Objects.equals(STEREO_COLOR_KNOWN, stereoColorKnown)){
-            map.put("stereoColorKnown", stereoColorKnown.asHex());
+            map.put(STEREO_COLOR_UNKNOWN_INDICATION, stereoColorKnown.asHex());
         }
         if(!Objects.equals(STEREO_COLOR_UNKNOWN, stereoColorUnknown)){
             map.put("stereoColorUnknown", stereoColorUnknown.asHex());
         }
         if(!Objects.equals(DEFAULT_HIGHLIGHT_COLORS, highlightColors)){
-            map.put("highlightColors", highlightColors);
+            map.put(HIGHLIGHT_COLOR_INDICATION, highlightColors);
         }
         return map;
     }

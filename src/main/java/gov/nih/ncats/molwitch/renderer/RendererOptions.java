@@ -1,26 +1,6 @@
-/*
- * NCATS-MOLWITCH-RENDERER
- *
- * Copyright 2026 NIH/NCATS
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *        http://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- */
-
 package gov.nih.ncats.molwitch.renderer;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -204,7 +184,7 @@ public class RendererOptions {
 	private Function<Chemical, String> bottomCaptionFunction=null;
 	private Function<Chemical, String> topCaptionFunction=null;
 
-	private List<RendererOptionChangeListener> changeListeners = new ArrayList<>();
+	private final List<RendererOptionChangeListener> changeListeners = new ArrayList<>();
 
 	public RendererOptions() {
 		_useDefauls();
@@ -230,7 +210,7 @@ public class RendererOptions {
 			}
 		}
 		for(Entry<DrawOptions,Boolean> entry: drawOptions.entrySet()){
-			if(entry.getKey().defaultValue != entry.getValue().booleanValue()) {
+			if(entry.getKey().defaultValue != entry.getValue()) {
 				map.put(entry.getKey().legacyName, entry.getValue());
 			}
 		}
@@ -462,7 +442,7 @@ public class RendererOptions {
 			}else {
 
 				if(Boolean.class.isAssignableFrom(entry.getValue().getClass())){
-					setDrawOption(opts, ((Boolean) entry.getValue()).booleanValue());
+					setDrawOption(opts, ((Boolean) entry.getValue()));
 				}else if(String.class.isAssignableFrom(entry.getValue().getClass())){
 					setDrawOption(opts,Boolean.parseBoolean((String)entry.getValue()));
 				}
