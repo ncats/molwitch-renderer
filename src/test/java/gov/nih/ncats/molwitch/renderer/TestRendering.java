@@ -1,7 +1,7 @@
 /*
  * NCATS-MOLWITCH-RENDERER
  *
- * Copyright 2024 NIH/NCATS
+ * Copyright 2026 NIH/NCATS
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -32,9 +32,12 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Ignore
 public class TestRendering {
+    private static final Logger log = LoggerFactory.getLogger(TestRendering.class);
 
     String IMAGE_DIR = "images/";
 
@@ -82,7 +85,7 @@ public class TestRendering {
         mols.forEach(m->{
             File molfile = new File(getClass().getResource("/"+m).getFile());
             if(!molfile.exists()){
-                System.err.println("Error! molfile requested does not exist");
+                log.error("Error! molfile requested does not exist");
                 Assert.fail("molfile must be readable");
             }
             boolean result1 = false;
@@ -108,7 +111,7 @@ public class TestRendering {
                 "P88XT4IS4D", "ethane", "benzoic_acid", "4ELV7Z65AP", "ammonia_not_centered", "YHK8Y852SC"/*multiple stereocenters*/,
                 "NVG8YK55NL" /*relative stereo*/); //, "ammonia_centered"
         molNames.forEach(mol->{
-            System.out.println("Going to render " + mol);
+            log.trace("Going to render {}", mol);
             RendererOptions rendererOptions = RendererOptions.createUSPLike();
             rendererOptions=rendererOptions.captionTop(c -> c.getProperty("TOP_TEXT"));
             rendererOptions=rendererOptions.captionBottom(c -> c.getProperty("BOTTOM_TEXT"));
@@ -130,22 +133,15 @@ public class TestRendering {
             int maxHeight = 500;
             int minHeight = 100;
             double requestedAverageBondLength =25;
-            /*Rectangle2D.Double approxBounds= renderer.getApproximateBoundsFor(c, maxWidth,
-                    minWidth, maxHeight, minHeight, requestedAverageBondLength );
-            System.out.printf("x: %f, y: %f, width: %f, height: %f\n", approxBounds.getX(),
-                    approxBounds.getY(), approxBounds.getWidth(), approxBounds.getHeight());*/
-
             BufferedImage image=renderer.createImageAutoAdjust(c, maxWidth, minWidth, maxHeight, minHeight, requestedAverageBondLength);
-            //createImageAutoAdjust(c, 500, 200, 500, 200, 5);
-            //renderer.createImageAutoAdjust(c, 300);
-            System.out.println("completed image creation");
+            log.info("completed image creation");
             boolean result1 = false;
             try {
                 result1 = ImageIO.write(image, "PNG", new File(folder +MolWitch.getModuleName()
                         + mol +"_5parm25_test29.png"));
-                System.out.println("wrote");
+                log.debug("wrote");
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("error writing file", e);
             }
             Assert.assertTrue(result1);
 
@@ -157,7 +153,7 @@ public class TestRendering {
         String folder ="images\\";
         List<String> molNames = Arrays.asList("4ELV7Z65AP"); //, stearic acid
         molNames.forEach(mol->{
-            System.out.println("Going to render " + mol);
+            log.debug("Going to render {}", mol);
             RendererOptions rendererOptions = RendererOptions.createUSPLike();
             rendererOptions=rendererOptions.captionTop(c -> c.getProperty("TOP_TEXT"));
             rendererOptions=rendererOptions.captionBottom(c -> c.getProperty("BOTTOM_TEXT"));
@@ -180,18 +176,19 @@ public class TestRendering {
             int upper = 2*size;
             double baseBondLength=75;
             double bondLength=baseBondLength;
-            System.out.println("lower: " + lower + "; upper: " + upper + "; bond length: " + bondLength);
+            log.trace("lower: {}; upper: {}; bondLength: {}", lower, upper, bondLength);
+
             Rectangle2D.Double rect = renderer.getApproximateBoundsFor(c, upper, lower, upper, lower, bondLength);
             int width=(int)Math.round(rect.getWidth());
             int height=(int)Math.round(rect.getHeight());
 
             BufferedImage image=renderer.createImage(c, width, height, false);
-            System.out.println("completed image creation");
+            log.info("completed image creation");
             boolean result1 = false;
             try {
                 result1 = ImageIO.write(image, "PNG", new File(folder +MolWitch.getModuleName()
                         + mol +"_simple.png"));
-                System.out.println("wrote");
+                log.info("wrote");
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -205,7 +202,7 @@ public class TestRendering {
         String folder ="images\\";
         List<String> molNames = Arrays.asList("4ELV7Z65AP"); //, stearic acid
         molNames.forEach(mol->{
-            System.out.println("Going to render " + mol);
+            log.debug("Going to render {}", mol);
             RendererOptions rendererOptions = RendererOptions.createUSPLike();
             rendererOptions=rendererOptions.captionTop(c -> c.getProperty("TOP_TEXT"));
             rendererOptions=rendererOptions.captionBottom(c -> c.getProperty("BOTTOM_TEXT"));
@@ -228,19 +225,19 @@ public class TestRendering {
             int upper = 2*size;
             double baseBondLength=75;
             double bondLength=baseBondLength;
-            System.out.println("lower: " + lower + "; upper: " + upper + "; bond length: " + bondLength);
+            log.trace("lower: {}; upper: {}; bondLength: {}", lower, upper, bondLength);
             Rectangle2D.Double rect = renderer.getApproximateBoundsFor(c, upper, lower, upper, lower, bondLength);
             int width=(int)Math.round(rect.getWidth());
             int height=(int)Math.round(rect.getHeight());
 
 
             BufferedImage image=renderer.createImage(c, width, height, false);
-            System.out.println("completed image creation");
+            log.debug("completed image creation");
             boolean result1 = false;
             try {
                 result1 = ImageIO.write(image, "PNG", new File(folder +MolWitch.getModuleName()
                         + mol +"_simple.png"));
-                System.out.println("wrote");
+                log.debug("wrote");
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -254,7 +251,7 @@ public class TestRendering {
         String folder ="images\\";
         List<String> molNames = Arrays.asList("ammonia_not_centered", "water");
         molNames.forEach(mol->{
-            System.out.println("Going to render " + mol);
+            log.debug("Going to render " + mol);
             ChemicalRenderer renderer = new ChemicalRenderer();
             renderer.setShadowVisible(false);
             Chemical c = null;
@@ -270,20 +267,13 @@ public class TestRendering {
             int maxHeight = 500;
             int minHeight = 100;
             double requestedAverageBondLength =25;
-            /*Rectangle2D.Double approxBounds= renderer.getApproximateBoundsFor(c, maxWidth,
-                    minWidth, maxHeight, minHeight, requestedAverageBondLength );
-            System.out.printf("x: %f, y: %f, width: %f, height: %f\n", approxBounds.getX(),
-                    approxBounds.getY(), approxBounds.getWidth(), approxBounds.getHeight());*/
-
             BufferedImage image=renderer.createImageAutoAdjust(c, maxWidth, minWidth, maxHeight, minHeight, requestedAverageBondLength);
-            //createImageAutoAdjust(c, 500, 200, 500, 200, 5);
-            //renderer.createImageAutoAdjust(c, 300);
-            System.out.println("completed image creation");
+            log.info("completed image creation");
             boolean result1 = false;
             try {
                 result1 = ImageIO.write(image, "PNG", new File(folder +MolWitch.getModuleName()
                         + mol +"_5parm25_test24.png"));
-                System.out.println("wrote");
+                log.debug("wrote");
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -304,7 +294,7 @@ public class TestRendering {
             e.printStackTrace();
         }
         double min = ChemicalRenderer.computeLowestInterAtomDistance(c).get();
-        System.out.println("lowest interatomic distance " + min);
+        log.debug("lowest interatomic distance {}", min);
         Assert.assertTrue(min>= 100);
     }
 
@@ -316,7 +306,7 @@ public class TestRendering {
                 "water_double2", "water_double2close", "Y9WL8QN3ZB" /*polymer*/,
                 "P88XT4IS4D", "ethane", "benzoic_acid", "NVG8YK55NL");
         molNames.forEach(mol->{
-            System.out.println("Going to handle " + mol);
+            log.debug("Going to handle {}", mol);
             ChemicalRenderer renderer = new ChemicalRenderer();
             Chemical c = null;
             try {
@@ -325,7 +315,7 @@ public class TestRendering {
                 e.printStackTrace();
             }
             Rectangle2D.Double rectangle =ChemicalRenderer.computeAtomicCoordinateBounds(c);
-            System.out.printf("box for %s: x=%f, y=%f, width=%f, height=%f\n", mol, rectangle.x,
+            log.trace("box for {}: x={}, y={}, width={}, height={}", mol, rectangle.x,
                     rectangle.y, rectangle.width, rectangle.height);
 
             Assert.assertTrue(rectangle !=null);
@@ -337,7 +327,7 @@ public class TestRendering {
         String folder ="images\\";
         List<String> molNames = Arrays.asList("LMI26O6933", "4ELV7Z65AP");
         molNames.forEach(mol->{
-            System.out.println("Going to calculate bounds for " + mol);
+            log.debug("Going to calculate bounds for " + mol);
             RendererOptions rendererOptions = RendererOptions.createUSPLike();
             rendererOptions=rendererOptions.captionTop(c -> c.getProperty("TOP_TEXT"));
             rendererOptions=rendererOptions.captionBottom(c -> c.getProperty("BOTTOM_TEXT"));
@@ -365,7 +355,7 @@ public class TestRendering {
             double bondLength=(size/300)*baseBondLength;
             Rectangle2D.Double approxBounds= renderer.getApproximateBoundsFor(c, upper,
                     lower, upper, lower, bondLength );
-            System.out.printf("x: %f, y: %f, width: %f, height: %f\n", approxBounds.getX(),
+            log.debug("x:{}, y: {}, width: {}, height: {}", approxBounds.getX(),
                     approxBounds.getY(), approxBounds.getWidth(), approxBounds.getHeight());
             Assert.assertNotNull(approxBounds);
 

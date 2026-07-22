@@ -1,7 +1,7 @@
 /*
  * NCATS-MOLWITCH-RENDERER
  *
- * Copyright 2024 NIH/NCATS
+ * Copyright 2026 NIH/NCATS
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -19,14 +19,14 @@
 package gov.nih.ncats.molwitch.renderer;
 
 import gov.nih.ncats.molwitch.Chemical;
-import gov.nih.ncats.molwitch.MolWitch;
 import org.junit.Test;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.File;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestRenderEmptyMol {
+    private static final Logger log = LoggerFactory.getLogger(TestRenderSgroupBrackets.class);
 
     @Test
     public void zeroAtomsInMol() throws Exception{
@@ -40,8 +40,7 @@ public class TestRenderEmptyMol {
         renderer.setShadowVisible(false);
 
         Chemical c = Chemical.parseMol(mol);
-//        c.generateCoordinates();
-//        System.out.println(c.getFormula());
+        log.trace(c.getFormula());
         BufferedImage actual = renderer.createImage(c, 200);
 
     }

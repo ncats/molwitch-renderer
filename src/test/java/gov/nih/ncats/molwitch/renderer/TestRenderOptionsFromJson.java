@@ -1,7 +1,7 @@
 /*
  * NCATS-MOLWITCH-RENDERER
  *
- * Copyright 2024 NIH/NCATS
+ * Copyright 2026 NIH/NCATS
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -25,7 +25,10 @@ import java.io.IOException;
 import java.util.Map;
 
 import static org.junit.Assert.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 public class TestRenderOptionsFromJson {
+    private static final Logger log = LoggerFactory.getLogger(TestChemicalRendererJson.class);
 
     @Test
     public void sameObjectHasSameValues(){
@@ -130,7 +133,7 @@ public class TestRenderOptionsFromJson {
     public void jacksonSerializer() throws Exception{
         ObjectMapper mapper = new ObjectMapper();
         String json = mapper.writeValueAsString(RendererOptions.createUSPLike());
-        System.out.println(json);
+        log.debug(json);
         RendererOptions actual = mapper.readValue(json, RendererOptions.class);
         assertValuesEqual(RendererOptions.createUSPLike(), actual);
 

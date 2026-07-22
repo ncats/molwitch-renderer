@@ -1,21 +1,3 @@
-/*
- * NCATS-MOLWITCH-RENDERER
- *
- * Copyright 2024 NIH/NCATS
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *        http://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- */
-
 package gov.nih.ncats.molwitch.renderer;
 
 import java.awt.AlphaComposite;
@@ -34,8 +16,6 @@ import java.awt.image.BufferedImageOp;
 import java.awt.image.ColorConvertOp;
 import java.awt.image.ConvolveOp;
 import java.awt.image.Kernel;
-import java.io.File;
-import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,11 +23,12 @@ import java.util.concurrent.ConcurrentMap;
 
 import gov.nih.ncats.molwitch.Chemical;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-
-
- abstract class AbstractChemicalRenderer {
-	
+ abstract class AbstractChemicalRenderer { 
+	private static final Logger log = LoggerFactory.getLogger(AbstractChemicalRenderer.class);
+	 
 	public static final String PROPERTY_NAME = "NAME_OF_CHEMICAL_4829103";
 	public static final String PROPERTY_SMILES = "SMILES_OF_CHEMICAL_4829103";
 	
@@ -57,7 +38,7 @@ import gov.nih.ncats.molwitch.Chemical;
 	
 	
 	 static final ConcurrentMap<Integer, BufferedImageOp> OperCache = 
-		        new ConcurrentHashMap<Integer, BufferedImageOp>();
+		        new ConcurrentHashMap<>();
 	 static final ColorSpace cs = ColorSpace.getInstance(ColorSpace.CS_GRAY);
 	 static final ColorConvertOp GREYOP = new ColorConvertOp(cs, null);  
 	 
@@ -68,7 +49,7 @@ import gov.nih.ncats.molwitch.Chemical;
 	 boolean borderViz=false;
      ARGBColor backgroundColor = new ARGBColor(0,0,0,0);
      ARGBColor borderColor=new ARGBColor(Color.black);
-	 Set<String> _displayProperties = new LinkedHashSet<String>();
+	 Set<String> _displayProperties = new LinkedHashSet<>();
 
 		
 	  
@@ -114,8 +95,8 @@ import gov.nih.ncats.molwitch.Chemical;
 	renderChem (g2, c, 0, 0, width, height, round);
 	}
 	public void renderChem (Graphics2D g2, Chemical c, int x, int y,int width, int height, boolean round){
-		/*System.out.printf("starting renderChem total atoms: %d; x: %d; y: %d, width: %d; height: %d; round: %b\n",
-				c.getAtomCount(), x, y, width, height, round);*/
+		log.trace("starting renderChem total atoms: {}; x: {}; y: {}, width: {}; height: {}; round: {}",
+				c.getAtomCount(), x, y, width, height, round);
 		renderBackground(g2,x,y,width,height,round);
 		if(getShadowVisible())
 			renderChemicalShadow(g2,c,x,y,width,height);
@@ -222,18 +203,12 @@ import gov.nih.ncats.molwitch.Chemical;
        if(round){
     	   Shape shape = new RoundRectangle2D.Double
     	            (x, y, (double)wid, (double)hit, wid/4., hit/4.);
-    	        //g.setComposite(AlphaComposite.Clear);
-    	        //g.setPaint(new Color(0,0,0,0));
-    	        //g.fillRect(x, y, wid, hit);
     	        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
     			g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
     			g.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
     			g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-    	        
-            //g.setComposite(AlphaComposite.Src);
-            //g.fill(shape);
+
             g.setPaint(getBackgroundColor().asColor());
-            //g.setComposite(AlphaComposite.SrcAtop);
             g.fill(shape);
 	        if (this.getBorderVisible()) {
 	            g.setPaint(this.getBorderColor().asColor());

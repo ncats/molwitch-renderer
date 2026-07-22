@@ -1,7 +1,7 @@
 /*
  * NCATS-MOLWITCH-RENDERER
  *
- * Copyright 2024 NIH/NCATS
+ * Copyright 2026 NIH/NCATS
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -20,10 +20,14 @@ package gov.nih.ncats.molwitch.renderer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import static org.junit.Assert.*;
+
 public class TestChemicalRendererJson {
+    private static final Logger log = LoggerFactory.getLogger(TestChemicalRendererJson.class);
 
     @Test
     public void serialize() throws Exception{
@@ -35,11 +39,11 @@ public class TestChemicalRendererJson {
         ObjectMapper mapper = new ObjectMapper();
         String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(renderer);
 
-        System.out.println(json);
+        log.debug(json);
 
         ChemicalRenderer sut = mapper.readValue(json, ChemicalRenderer.class);
 
-        System.out.println("========\n"+ mapper.writerWithDefaultPrettyPrinter().writeValueAsString(renderer));
+        log.info("========\n"+ mapper.writerWithDefaultPrettyPrinter().writeValueAsString(renderer));
         assertEquals(renderer.getOptions().asNonDefaultMap(), sut.getOptions().asNonDefaultMap());
 
         assertEquals(renderer.isBorderVisible(), sut.isBorderVisible());

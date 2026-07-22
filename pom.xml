@@ -2,7 +2,7 @@
 <!--
   ~ NCATS-MOLWITCH-RENDERER
   ~
-  ~ Copyright 2024 NIH/NCATS
+  ~ Copyright 2026 NIH/NCATS
   ~
   ~    Licensed under the Apache License, Version 2.0 (the "License");
   ~    you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
     <groupId>gov.nih.ncats</groupId>
     <artifactId>molwitch-renderer</artifactId>
-    <version>1.0.17</version>
+    <version>1.0.20</version>
 
     <name>Molwitch Renderer</name>
 
@@ -42,6 +42,7 @@
         </license>
     </licenses>
 
+	<packaging>jar</packaging>
     <developers>
         <developer>
             <id>katzelda</id>
@@ -74,50 +75,45 @@
         </developer>
     </developers>
 
+    <properties>
+        <gpg.skip>true</gpg.skip>
+        <jackson.version>2.21.4</jackson.version>
+        <jackson.annotations.version>2.21</jackson.annotations.version>
+    </properties>
+
     <scm>
         <url>https://github.com/ncats/molwitch-renderer.git</url>
     </scm>
-
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-    </distributionManagement>
 
     <dependencies>
        <dependency>
            <groupId>gov.nih.ncats</groupId>
            <artifactId>molwitch</artifactId>
-           <version>0.6.5</version>
+           <version>0.6.11</version>
        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>2.14.0</version>
+            <version>${jackson.version}</version>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.14.0</version>
+            <version>${jackson.version}</version>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>2.14.0</version>
+            <version>${jackson.annotations.version}</version>
             <optional>true</optional>
         </dependency>
        <dependency>
-        <groupId>gov.nih.ncats</groupId>
-        <artifactId>molwitch-cdk</artifactId>
-        <version>1.0.14</version>
-        <scope>test</scope>
+            <groupId>gov.nih.ncats</groupId>
+            <artifactId>molwitch-cdk</artifactId>
+            <version>1.0.25</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <artifactId>cdk-bundle</artifactId>
@@ -125,19 +121,6 @@
             <version>2.7.1</version>
             <scope>test</scope>
         </dependency>
-        <!--dependency>
-            <groupId>gov.nih.ncats</groupId>
-            <artifactId>molwitch-jchem3</artifactId>
-            <version>1.0.11</version>
-            <scope>test</scope>
-        </dependency-->
-
-        <!--dependency>
-            <groupId>chemaxon</groupId>
-            <artifactId>jchem</artifactId>
-            <version>1.0.0fake</version>
-            <scope>provided</scope>
-        </dependency-->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
@@ -150,9 +133,38 @@
             <version>4.13.2</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.34</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.36</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>2.17.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.17.2</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- SLF4J 1.x binding to Log4j2 -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>2.17.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
-
-    <build>
+	<build>
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -162,6 +174,7 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -169,12 +182,11 @@
                 <executions>
                     <execution>
                         <id>attach-sources</id>
-                        <goals>
-                            <goal>jar-no-fork</goal>
-                        </goals>
+                        <goals><goal>jar-no-fork</goal></goals>
                     </execution>
                 </executions>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -182,74 +194,34 @@
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>  
+                        <goals><goal>jar</goal></goals>
                     </execution>
                 </executions>
             </plugin>
+
             <plugin>
-                <artifactId>maven-deploy-plugin</artifactId>
-                <version>2.8.2</version>
-                <executions>
-                    <execution>
-                        <id>default-deploy</id>
-                        <phase>deploy</phase>
-                        <goals>
-                            <goal>deploy</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.5.0</version> <!-- use latest available -->
+                <extensions>true</extensions>
             </plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-gpg-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<id>sign-artifacts</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>sign</goal>
+						</goals>
+                        <configuration>
+                            <skip>${gpg.skip}</skip>
+                        </configuration>
+					</execution>
+				</executions>
+			</plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>ossrh</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.sonatype.plugins</groupId>
-                        <artifactId>nexus-staging-maven-plugin</artifactId>
-                        <version>1.6.7</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <serverId>ossrh</serverId>
-                            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.5</version>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-source-plugin</artifactId>
-                        <version>2.2.1</version>
-                        <executions>
-                            <execution>
-                                <id>attach-sources</id>
-                                <goals>
-                                    <goal>jar-no-fork</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

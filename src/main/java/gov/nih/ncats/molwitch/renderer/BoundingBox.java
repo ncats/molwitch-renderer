@@ -1,21 +1,3 @@
-/*
- * NCATS-MOLWITCH-RENDERER
- *
- * Copyright 2024 NIH/NCATS
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *        http://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
- */
-
 package gov.nih.ncats.molwitch.renderer;
 
 import java.awt.geom.Rectangle2D;
@@ -29,7 +11,9 @@ import gov.nih.ncats.molwitch.Atom;
 import gov.nih.ncats.molwitch.AtomCoordinates;
 import gov.nih.ncats.molwitch.Chemical;
 import gov.nih.ncats.molwitch.SGroup;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 class BoundingBox {
     public static Rectangle2D computeBoundingBoxFor(Chemical c) {
         return computeBoundingBoxFor(c, 0);
@@ -107,53 +91,6 @@ class BoundingBox {
 		double doublePadding = padding*2;
 		return new Rectangle2D.Double(minX-padding, minY-padding, (maxX-minX)+doublePadding, (maxY-minY)+doublePadding);
 	}
-    /*private static Rectangle2D computePaddedBoundingBoxFromSuppliers(Iterable<Supplier<AtomCoordinates>> c, double padding) {
-		double minX = Double.POSITIVE_INFINITY;
-		double minY = Double.POSITIVE_INFINITY;
-		double maxX = Double.NEGATIVE_INFINITY;
-		double maxY = Double.NEGATIVE_INFINITY;
-		
-		for(Supplier<AtomCoordinates> a :c) {
-			AtomCoordinates coords = a.get();
-			
-			double x = coords.getX();
-			double y = coords.getY();
-			if(x < minX) {
-				minX = x;
-			}
-			if(x > maxX) {
-				maxX =x;
-			}
-			if( y < minY) {
-				minY=y;
-			}
-			if( y > maxY) {
-				maxY=y;
-			}
-		}
-		double xSpread= maxX-minX;
-		double ySpread= maxY-minY;
-		double avgSpread = (xSpread+ySpread)/2;
-		//System.out.printf("xSpread: %f, ySpread: %f, avg: %f\n", xSpread, ySpread, avgSpread);
-		double xRatio = ySpread==0 ? 1 : xSpread/ySpread;
-		double yRatio = xSpread==0 ? 1 : ySpread/xSpread;
-		//System.out.printf("xRatio: %f, yRatio: %f\n", xRatio, yRatio);
-		double scale = 0.7;
-		xRatio = xRatio * scale;
-		yRatio= yRatio * scale;
-
-		double factor=1.1;
-		double xPadding = Math.max(xRatio, 0.0); //(xSpread/avgSpread)*factor
-		double yPadding = Math.max(yRatio, 0.0);//(ySpread/avgSpread)*factor
-		//System.out.printf("xPadding: %f, yPadding: %f\n", xPadding, yPadding);
-
-		double doublePadding = padding*2;
-		double lowX =minX-xPadding;
-		double lowY=minY-yPadding;
-		double highX=(maxX-minX)+(2*xPadding);
-		double highY=(maxY-minY)+(2*yPadding);
-		return new Rectangle2D.Double(lowX, lowY, highX, highY);
-	}*/
 
 	public static Rectangle2D computePaddedBoundingBoxForCoordinates(Iterable<AtomCoordinates> c, double padding) {
 		double minX = Double.POSITIVE_INFINITY;
@@ -161,8 +98,7 @@ class BoundingBox {
 		double maxX = Double.NEGATIVE_INFINITY;
 		double maxY = Double.NEGATIVE_INFINITY;
 		
-			for(AtomCoordinates coords : c){
-			
+		for(AtomCoordinates coords : c){
 			double x = coords.getX();
 			double y = coords.getY();
 			
@@ -179,6 +115,7 @@ class BoundingBox {
 				maxY=y;
 			}
 		}
+		log.trace("computePaddedBoundingBoxForCoordinates found minX {}; padding: {}", minX, padding);
 		double doublePadding = padding*2;
 		return new Rectangle2D.Double(minX-padding, minY-padding,
 				Math.abs((maxX-minX)+doublePadding), 
@@ -244,20 +181,6 @@ class BoundingBox {
 	        if (a.length == 0) throw new IllegalArgumentException("array is of length 0");
 
 	        int n = a.length;
-	        //katzelda- don't need a defensive copy
-	        //since we just created it ourselves
-	        // defensive copy
-//	        
-//	        Point2D[] a = new Point2D[n];
-//	        for (int i = 0; i < n; i++) {
-//	            if (points[i] == null)
-//	                throw new IllegalArgumentException("points[" + i + "] is null");
-//	            a[i] = points[i];
-//	        }
-
-	        // preprocess so that a[0] has lowest y-coordinate; break ties by x-coordinate
-	        // a[0] is an extreme point of the convex hull
-	        // (alternatively, could do easily in linear time)
 	        Arrays.sort(a);
 
 	        // sort by polar angle with respect to base point a[0],
