@@ -54,6 +54,15 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	private static final float BRACKET_ARM_CAPPED_GAP_FRACTION = 0.20F;
 	private static final long WIDE_SINGLE_SGROUP_ATOM_COUNT_CUTOFF = 6L;
 	private static final double WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP = 0.75D;
+	private static final long COMPACT_SGROUP_LABEL_PADDING_ATOM_COUNT_CUTOFF = 6L;
+	private static final double BROAD_MOLECULE_LABEL_PADDING_SPREAD_CUTOFF = 5D;
+	private static final double MIN_COMPACT_HYDRATE_LABEL_PADDING = 0.95D;
+	private static final double MAX_COMPACT_HYDRATE_UNUSED_RIGHT_PADDING = 0.95D;
+	private static final double ONE_BOND_OXYGEN_HYDROGEN_EXTRA_CHARS = 1D;
+	private static final double BROAD_COMPACT_HYDRATE_EXTRA_CHARS = 1.5D;
+	private static final double MIN_EXTERNAL_LABEL_BRACKET_ATOM_GAP = 0.42D;
+	private static final double NEARBY_FRAGMENT_BRACKET_GAP_FRACTION = 0.50D;
+	private static final double NEARBY_FRAGMENT_VERTICAL_MARGIN = 0.25D;
 
 	public static final ARGBColor transparent = new ARGBColor(0, 0, 0, 0);
 	private String protProperty = "AMINO_ACID_SEQUENCE";
@@ -1347,6 +1356,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				lowestBracketX[0] = Double.NEGATIVE_INFINITY;
 				highestBracketX[0] = Double.POSITIVE_INFINITY;
 				List<AtomCoordinates> coords = new ArrayList<>(4);
+				boolean expandCompactOxygenLabelPadding = shouldExpandCompactOxygenLabelPadding(cg, coordinateSpread);
+				double effectiveSpread = Math.min(coordinateSpread.x, MAX_BRACKET_LABEL_PADDING_SPREAD);
+				double perChar = bracketPositioningSlope * effectiveSpread + bracketPositioningIntercept;
 				if( includeBracketCoordinates) {
 					for(SGroupBracket b: cg.getBrackets()){
 						coords.add(b.getPoint1());
@@ -1382,20 +1394,22 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 					AttachmentInfo attachmentInfo=  computeAttachments(a);
 					List<String> attachedText= attachmentInfo.getAttachments();
 					List<Integer> attachmentPositions = attachmentInfo.getAttachmentLOC();
-					int charsLeft = 0;
-					int charsRight = 0;
+					double charsLeft = 0D;
+					double charsRight = 0D;
 					for(int i = 0; i < attachedText.size(); i++) {
-						if(attachmentPositions.get(i) == 1 ){
-							charsRight += attachedText.get(i).length();
-						} else if( attachmentPositions.get(i) == 4) {
-							charsLeft += attachedText.get(i).length();
-						} else if( attachmentPositions.get(i) == 5) {
-							charsRight += Math.max(attachedText.get(i).length()/2, 1);
-							charsLeft += Math.max(attachedText.get(i).length()/2, 1);
+						String attachment = attachedText.get(i);
+						int horizontalPosition = getHorizontalAttachmentPosition(a, attachment, attachmentPositions.get(i));
+						double paddingChars = getAttachmentPaddingCharacterCount(a, attachment, horizontalPosition,
+								expandCompactOxygenLabelPadding, perChar);
+						if(horizontalPosition == 1 ){
+							charsRight += paddingChars;
+						} else if( horizontalPosition == 4) {
+							charsLeft += paddingChars;
+						} else if( horizontalPosition == 5) {
+							charsRight += Math.max(paddingChars/2, 1);
+							charsLeft += Math.max(paddingChars/2, 1);
 						}
 					}
-					double effectiveSpread = Math.min(coordinateSpread.x, MAX_BRACKET_LABEL_PADDING_SPREAD);
-					double perChar = bracketPositioningSlope * effectiveSpread + bracketPositioningIntercept;
 					double yDelta = bracketHeight[0] == null ?  0.1 : bracketHeight[0]/2;
 					lastUsedFactor = perChar;
 					//see how we draw H
@@ -1450,6 +1464,20 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 							wideSingleSgroupPadding.left, wideSingleSgroupPadding.right);
 				}
 
+				Rectangle2D compactHydrateBounds = limitCompactHydrateUnusedRightPadding(cg, rt);
+				if(compactHydrateBounds != rt){
+					log.trace("limited compact hydrate unused right padding from {} to {}",
+							rt.getMaxX(), compactHydrateBounds.getMaxX());
+					rt = compactHydrateBounds;
+				}
+
+				Rectangle2D cappedBounds = limitBracketPaddingNearExternalFragments(cg, chemical, rt, perChar);
+				if(cappedBounds != rt){
+					log.trace("limited bracket padding near external fragment from {}..{} to {}..{}",
+							rt.getX(), rt.getMaxX(), cappedBounds.getX(), cappedBounds.getMaxX());
+					rt = cappedBounds;
+				}
+
 				double xLeftFudgeFactor = 0;
 				if( cg.getAtoms().count()> bracketPositionFudgeFactorCutoff) {
 					xLeftFudgeFactor = this.bracketPositioningLeftFudgeFactor != null
@@ -1501,11 +1529,277 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		return r;
 	}
 
-	private NestedBracketPadding computeWideSingleSgroupEdgePadding(SGroup sgroup, Chemical chemical, Rectangle2D bounds) {
-		long bracketedSgroupCount = chemical.getSGroups().stream()
+	private int getHorizontalAttachmentPosition(Atom atom, String attachment, int supportedPosition) {
+		if(supportedPosition == 1 || supportedPosition == 4 || supportedPosition == -1){
+			return supportedPosition;
+		}
+		if(supportedPosition > 0){
+			int cardPos = getAttachCardPos(atom, attachment, supportedPosition);
+			if(cardPos == 0){
+				return 1;
+			}
+			if(cardPos == 2){
+				return 4;
+			}
+			return 0;
+		}
+		return supportedPosition;
+	}
+
+	private double getAttachmentPaddingCharacterCount(Atom atom, String attachment, int horizontalPosition,
+			boolean expandCompactOxygenLabelPadding, double perChar) {
+		double paddingChars = attachment.length();
+		if(horizontalPosition == 1 || horizontalPosition == 4){
+			if(isTerminalCarbonHydrogenAttachment(atom, attachment)){
+				paddingChars += 1D;
+			} else if(isOxygenHydrogenAttachment(atom, attachment)){
+				if(isIsolatedOxygenHydrogenAttachment(atom, attachment)){
+					if(expandCompactOxygenLabelPadding){
+						paddingChars += BROAD_COMPACT_HYDRATE_EXTRA_CHARS;
+					}
+					if(perChar > 0D){
+						paddingChars = Math.max(paddingChars, MIN_COMPACT_HYDRATE_LABEL_PADDING / perChar);
+					}
+				} else {
+					paddingChars += ONE_BOND_OXYGEN_HYDROGEN_EXTRA_CHARS;
+				}
+			} else if(isPositiveMulticharAtomChargeAttachment(atom, attachment)){
+				paddingChars = Math.max(paddingChars, atom.getSymbol().length() + attachment.length());
+			}
+		}
+		return paddingChars;
+	}
+
+	private boolean isTerminalCarbonHydrogenAttachment(Atom atom, String attachment) {
+		return "C".equals(atom.getSymbol()) && atom.getBondCount() == 1 && attachment.startsWith("H");
+	}
+
+	private boolean isPositiveMulticharAtomChargeAttachment(Atom atom, String attachment) {
+		return atom.getCharge() > 0 && atom.getSymbol().length() > 1
+				&& attachment.indexOf('\u207A') >= 0;
+	}
+
+	private boolean isOxygenHydrogenAttachment(Atom atom, String attachment) {
+		return "O".equals(atom.getSymbol()) && attachment.startsWith("H");
+	}
+
+	private boolean isIsolatedOxygenHydrogenAttachment(Atom atom, String attachment) {
+		return isOxygenHydrogenAttachment(atom, attachment) && atom.getBondCount() == 0;
+	}
+
+	private boolean shouldExpandCompactOxygenLabelPadding(SGroup sgroup, Point2D.Double coordinateSpread) {
+		return coordinateSpread.x > BROAD_MOLECULE_LABEL_PADDING_SPREAD_CUTOFF
+				&& sgroup.getAtoms().count() <= COMPACT_SGROUP_LABEL_PADDING_ATOM_COUNT_CUTOFF;
+	}
+
+	private Rectangle2D limitCompactHydrateUnusedRightPadding(SGroup sgroup, Rectangle2D bounds) {
+		if(!isCompactIsolatedHydrateSgroup(sgroup)){
+			return bounds;
+		}
+		SgroupAtomBounds atomBounds = getSgroupAtomBounds(sgroup);
+		if(!atomBounds.isFinite()){
+			return bounds;
+		}
+		double rightGap = bounds.getMaxX() - atomBounds.maxX;
+		if(rightGap > MAX_COMPACT_HYDRATE_UNUSED_RIGHT_PADDING){
+			double right = atomBounds.maxX + MAX_COMPACT_HYDRATE_UNUSED_RIGHT_PADDING;
+			return new Rectangle2D.Double(bounds.getX(), bounds.getY(), right - bounds.getX(), bounds.getHeight());
+		}
+		return bounds;
+	}
+
+	private boolean isCompactIsolatedHydrateSgroup(SGroup sgroup) {
+		List<Atom> atoms = sgroup.getAtoms().collect(Collectors.toList());
+		return atoms.size() <= COMPACT_SGROUP_LABEL_PADDING_ATOM_COUNT_CUTOFF
+				&& atoms.stream().allMatch(atom -> "O".equals(atom.getSymbol())
+						&& atom.getBondCount() == 0 && atom.getImplicitHCount() > 0);
+	}
+
+	private Rectangle2D limitBracketPaddingNearExternalFragments(SGroup sgroup, Chemical chemical, Rectangle2D bounds,
+			double perChar) {
+		long bracketedSgroupCount = getBracketedSgroupCount(chemical);
+		if(bracketedSgroupCount != 1L || sgroup.getAtoms().count() <= WIDE_SINGLE_SGROUP_ATOM_COUNT_CUTOFF){
+			return bounds;
+		}
+
+		SgroupAtomBounds atomBounds = getSgroupAtomBounds(sgroup);
+		if(!atomBounds.isFinite()){
+			return bounds;
+		}
+
+		ExternalFragmentGaps externalGaps = getNearestExternalFragmentGaps(sgroup, chemical, bounds, atomBounds, perChar);
+		NestedBracketPadding internalLabelPadding = computeInternalLabelPaddingFloor(sgroup, atomBounds, perChar);
+		double left = bounds.getX();
+		double right = bounds.getMaxX();
+		if(Double.isFinite(externalGaps.left)){
+			double leftGap = atomBounds.minX - left;
+			double minLeftGap = Math.max(internalLabelPadding.left, externalGaps.leftLabelAdjusted
+					? MIN_EXTERNAL_LABEL_BRACKET_ATOM_GAP : WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP);
+			double maxLeftGap = Math.max(minLeftGap,
+					externalGaps.left * NEARBY_FRAGMENT_BRACKET_GAP_FRACTION);
+			if(leftGap > maxLeftGap){
+				left = atomBounds.minX - maxLeftGap;
+			}
+		}
+		if(Double.isFinite(externalGaps.right)){
+			double rightGap = right - atomBounds.maxX;
+			double minRightGap = Math.max(internalLabelPadding.right, externalGaps.rightLabelAdjusted
+					? MIN_EXTERNAL_LABEL_BRACKET_ATOM_GAP : WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP);
+			double maxRightGap = Math.max(minRightGap,
+					externalGaps.right * NEARBY_FRAGMENT_BRACKET_GAP_FRACTION);
+			if(rightGap > maxRightGap){
+				right = atomBounds.maxX + maxRightGap;
+			}
+		}
+
+		if(left != bounds.getX() || right != bounds.getMaxX()){
+			return new Rectangle2D.Double(left, bounds.getY(), right - left, bounds.getHeight());
+		}
+		return bounds;
+	}
+
+	private NestedBracketPadding computeInternalLabelPaddingFloor(SGroup sgroup, SgroupAtomBounds atomBounds,
+			double perChar) {
+		if(perChar <= 0D){
+			return NestedBracketPadding.none();
+		}
+
+		double left = 0D;
+		double right = 0D;
+		for(Atom atom : sgroup.getAtoms().collect(Collectors.toList())){
+			AttachmentInfo attachmentInfo = computeAttachments(atom);
+			List<String> attachedText = attachmentInfo.getAttachments();
+			List<Integer> attachmentPositions = attachmentInfo.getAttachmentLOC();
+			for(int i = 0; i < attachedText.size(); i++){
+				String attachment = attachedText.get(i);
+				boolean terminalCarbonHydrogen = isTerminalCarbonHydrogenAttachment(atom, attachment);
+				if("C".equals(atom.getSymbol()) && !terminalCarbonHydrogen){
+					continue;
+				}
+				int horizontalPosition = getHorizontalAttachmentPosition(atom, attachment, attachmentPositions.get(i));
+				double paddingChars = getAttachmentPaddingCharacterCount(atom, attachment, horizontalPosition,
+						false, perChar);
+				double labelPadding = paddingChars * perChar;
+				if(terminalCarbonHydrogen){
+					labelPadding = Math.min(labelPadding, WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP);
+				}
+				if(horizontalPosition == 1){
+					right = Math.max(right, getInternalRightLabelGap(atom, atomBounds, labelPadding));
+				} else if(horizontalPosition == 4){
+					left = Math.max(left, getInternalLeftLabelGap(atom, atomBounds, labelPadding));
+				} else if(horizontalPosition == 5){
+					double centeredPadding = Math.max(labelPadding / 2D, perChar);
+					left = Math.max(left, getInternalLeftLabelGap(atom, atomBounds, centeredPadding));
+					right = Math.max(right, getInternalRightLabelGap(atom, atomBounds, centeredPadding));
+				}
+			}
+		}
+
+		if(left <= 0D && right <= 0D){
+			return NestedBracketPadding.none();
+		}
+		return new NestedBracketPadding(left, right);
+	}
+
+	private double getInternalLeftLabelGap(Atom atom, SgroupAtomBounds atomBounds, double labelPadding) {
+		double atomOffsetFromLeft = atom.getAtomCoordinates().getX() - atomBounds.minX;
+		return getInternalLabelGap(labelPadding - atomOffsetFromLeft);
+	}
+
+	private double getInternalRightLabelGap(Atom atom, SgroupAtomBounds atomBounds, double labelPadding) {
+		double atomOffsetFromRight = atomBounds.maxX - atom.getAtomCoordinates().getX();
+		return getInternalLabelGap(labelPadding - atomOffsetFromRight);
+	}
+
+	private double getInternalLabelGap(double requiredGap) {
+		if(requiredGap <= 0D){
+			return 0D;
+		}
+		return Math.max(requiredGap, WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP);
+	}
+
+	private ExternalFragmentGaps getNearestExternalFragmentGaps(SGroup sgroup, Chemical chemical,
+			Rectangle2D bounds, SgroupAtomBounds atomBounds, double perChar) {
+		List<Atom> sgroupAtoms = sgroup.getAtoms().collect(Collectors.toList());
+		Set<Atom> sgroupAtomSet = new HashSet<>(sgroupAtoms);
+		double leftGap = Double.POSITIVE_INFINITY;
+		double rightGap = Double.POSITIVE_INFINITY;
+		boolean leftLabelAdjusted = false;
+		boolean rightLabelAdjusted = false;
+		for(Atom atom : chemical.getAtoms()){
+			if(sgroupAtomSet.contains(atom)){
+				continue;
+			}
+			double atomY = atom.getAtomCoordinates().getY();
+			if(atomY < bounds.getY() - NEARBY_FRAGMENT_VERTICAL_MARGIN
+					|| atomY > bounds.getMaxY() + NEARBY_FRAGMENT_VERTICAL_MARGIN){
+				continue;
+			}
+			double atomX = atom.getAtomCoordinates().getX();
+			if(atomX < atomBounds.minX){
+				double labelPadding = getExternalRightLabelPadding(atom, perChar);
+				leftLabelAdjusted |= labelPadding > 0D;
+				leftGap = Math.min(leftGap, Math.max(0D, atomBounds.minX - atomX - labelPadding));
+			} else if(atomX > atomBounds.maxX){
+				double labelPadding = getExternalLeftLabelPadding(atom, perChar);
+				rightLabelAdjusted |= labelPadding > 0D;
+				rightGap = Math.min(rightGap, Math.max(0D, atomX - labelPadding - atomBounds.maxX));
+			}
+		}
+		return new ExternalFragmentGaps(leftGap, rightGap, leftLabelAdjusted, rightLabelAdjusted);
+	}
+
+	private double getExternalLeftLabelPadding(Atom atom, double perChar) {
+		return getExternalLabelPadding(atom, perChar, 4);
+	}
+
+	private double getExternalRightLabelPadding(Atom atom, double perChar) {
+		return getExternalLabelPadding(atom, perChar, 1);
+	}
+
+	private double getExternalLabelPadding(Atom atom, double perChar, int horizontalPositionToMatch) {
+		if(perChar <= 0D){
+			return 0D;
+		}
+		AttachmentInfo attachmentInfo = computeAttachments(atom);
+		List<String> attachedText = attachmentInfo.getAttachments();
+		List<Integer> attachmentPositions = attachmentInfo.getAttachmentLOC();
+		double paddingChars = 0D;
+		for(int i = 0; i < attachedText.size(); i++){
+			String attachment = attachedText.get(i);
+			int horizontalPosition = getHorizontalAttachmentPosition(atom, attachment, attachmentPositions.get(i));
+			double attachmentPadding = getAttachmentPaddingCharacterCount(atom, attachment, horizontalPosition,
+					true, perChar);
+			if(horizontalPosition == horizontalPositionToMatch){
+				paddingChars += attachmentPadding;
+			} else if(horizontalPosition == 5){
+				paddingChars += Math.max(attachmentPadding / 2D, 1D);
+			}
+		}
+		return paddingChars * perChar;
+	}
+
+	private SgroupAtomBounds getSgroupAtomBounds(SGroup sgroup) {
+		double minAtomX = sgroup.getAtoms()
+				.mapToDouble(atom -> atom.getAtomCoordinates().getX())
+				.min()
+				.orElse(Double.POSITIVE_INFINITY);
+		double maxAtomX = sgroup.getAtoms()
+				.mapToDouble(atom -> atom.getAtomCoordinates().getX())
+				.max()
+				.orElse(Double.NEGATIVE_INFINITY);
+		return new SgroupAtomBounds(minAtomX, maxAtomX);
+	}
+
+	private long getBracketedSgroupCount(Chemical chemical) {
+		return chemical.getSGroups().stream()
 				.filter(g -> g.getType() != SGroupType.SUPERATOM_OR_ABBREVIATION
 						&& g.bracketsSupported() && g.hasBrackets())
 				.count();
+	}
+
+	private NestedBracketPadding computeWideSingleSgroupEdgePadding(SGroup sgroup, Chemical chemical, Rectangle2D bounds) {
+		long bracketedSgroupCount = getBracketedSgroupCount(chemical);
 		if(bracketedSgroupCount != 1L || sgroup.getAtoms().count() <= WIDE_SINGLE_SGROUP_ATOM_COUNT_CUTOFF){
 			return NestedBracketPadding.none();
 		}
@@ -1601,6 +1895,34 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			return null;
 		}
 		return new BracketEdges(left, right, top, bottom);
+	}
+
+	private static class SgroupAtomBounds {
+		private final double minX;
+		private final double maxX;
+
+		private SgroupAtomBounds(double minX, double maxX) {
+			this.minX = minX;
+			this.maxX = maxX;
+		}
+
+		private boolean isFinite() {
+			return Double.isFinite(minX) && Double.isFinite(maxX);
+		}
+	}
+
+	private static class ExternalFragmentGaps {
+		private final double left;
+		private final double right;
+		private final boolean leftLabelAdjusted;
+		private final boolean rightLabelAdjusted;
+
+		private ExternalFragmentGaps(double left, double right, boolean leftLabelAdjusted, boolean rightLabelAdjusted) {
+			this.left = left;
+			this.right = right;
+			this.leftLabelAdjusted = leftLabelAdjusted;
+			this.rightLabelAdjusted = rightLabelAdjusted;
+		}
 	}
 
 	private static class NestedBracketPadding {
