@@ -147,7 +147,7 @@ public class TestRenderSgroupBrackets {
     }
 
     @Test
-    public void terminalCarbonHydrogenLabelClearsOpeningBracket() throws Exception {
+    public void leftSideImplicitHydrogenLabelsClearOpeningBracket() throws Exception {
         double slope = 0.01;
         double intercept = 0.46;
 
@@ -159,6 +159,7 @@ public class TestRenderSgroupBrackets {
         Assert.assertTrue("Opening bracket should clear the terminal H3C label",
                 getLeftAtomGap(sgroup, rect) >= (3D * perChar) - 0.001D);
         assertLeftBracketGapAtLeast("C1O32IJ4HS", 0, slope, intercept, 2D);
+        assertLeftBracketGapAtLeast("17VU4Z4W88", 0, slope, intercept, 2D);
     }
 
     @Test
@@ -377,7 +378,7 @@ public class TestRenderSgroupBrackets {
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
         NchemicalRenderer renderer = new NchemicalRenderer(rendererOptions);
-        List<String> chemicalNames = Arrays.asList("KTD4ED4NYA", "C1O32IJ4HS");
+        List<String> chemicalNames = Arrays.asList("KTD4ED4NYA", "C1O32IJ4HS", "17VU4Z4W88");
         List<Boolean> results = chemicalNames.stream()
                 .map(n -> {
                     try {
