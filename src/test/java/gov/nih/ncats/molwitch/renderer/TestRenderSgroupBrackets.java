@@ -159,7 +159,8 @@ public class TestRenderSgroupBrackets {
         Assert.assertTrue("Opening bracket should clear the terminal H3C label",
                 getLeftAtomGap(sgroup, rect) >= (3D * perChar) - 0.001D);
         assertLeftBracketGapAtLeast("C1O32IJ4HS", 0, slope, intercept, 2D);
-        assertLeftBracketGapAtLeast("17VU4Z4W88", 0, slope, intercept, 2D);
+        assertLeftBracketGapAtLeast("17VU4Z4W88", 0, slope, intercept, 1.75D);
+        assertLeftBracketGapAtMost("17VU4Z4W88", 0, slope, intercept, 1.75D);
     }
 
     @Test
@@ -424,6 +425,17 @@ public class TestRenderSgroupBrackets {
 
         Assert.assertTrue("Opening bracket should clear the rendered left-side label",
                 getLeftAtomGap(sgroup, rect) >= (expectedCharCount * perChar) - 0.001D);
+    }
+
+    private void assertLeftBracketGapAtMost(String resourceName, int sgroupIndex, double slope, double intercept,
+            double expectedCharCount) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(sgroupIndex);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+        double perChar = slope * Math.min(NchemicalRenderer.getCoordinateSpread(chemical).x, 2.5D) + intercept;
+
+        Assert.assertTrue("Opening bracket should not over-expand into nearby bonds",
+                getLeftAtomGap(sgroup, rect) <= (expectedCharCount * perChar) + 0.001D);
     }
 
     private void assertRightBracketGapAtLeast(String resourceName, int sgroupIndex, double slope, double intercept,

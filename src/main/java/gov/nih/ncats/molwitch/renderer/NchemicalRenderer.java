@@ -60,7 +60,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	private static final double MAX_COMPACT_HYDRATE_UNUSED_RIGHT_PADDING = 0.95D;
 	private static final double ONE_BOND_OXYGEN_HYDROGEN_EXTRA_CHARS = 1D;
 	private static final double CAPPED_TERMINAL_CARBON_HYDROGEN_LABEL_CHARS = 2D;
-	private static final double FORCED_LEFT_HYDROGEN_LABEL_CHARS = 2D;
+	private static final double FORCED_LEFT_HYDROGEN_LABEL_CHARS = 1.75D;
 	private static final double BROAD_COMPACT_HYDRATE_EXTRA_CHARS = 1.5D;
 	private static final double MIN_EXTERNAL_LABEL_BRACKET_ATOM_GAP = 0.42D;
 	private static final double NEARBY_FRAGMENT_BRACKET_GAP_FRACTION = 0.50D;
