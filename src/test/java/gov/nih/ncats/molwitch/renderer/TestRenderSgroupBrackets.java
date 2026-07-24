@@ -25,8 +25,8 @@ public class TestRenderSgroupBrackets {
     @Test
     public void renderWithBracketsSet() {
         RendererOptions options = new RendererOptions();
-        options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, 0.03);
-        options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, 0.6);
+        options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, 0.01);
+        options.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, 0.46);
         NchemicalRenderer renderer = new NchemicalRenderer(options);
 
         List<String> chemicalNames = Arrays.asList("sodium_acetate", "NFX970DSI2", "V341SPY84U", "J3OC7JVS54", "4VN69WUP7N",
@@ -132,8 +132,9 @@ public class TestRenderSgroupBrackets {
         double slope = 0.01;
         double intercept = 0.455;
 
-        assertBracketGapsAtLeast("14bb185c-ed7a-4b4f-b496-e085579aa4c0", 0, slope, intercept, 0.75F);
-        assertBracketGapsAtLeast("1680fcfc-81b9-486e-85aa-1e2cdb348d07", 0, slope, intercept, 0.75F);
+        assertBracketGapsAtLeast("14bb185c-ed7a-4b4f-b496-e085579aa4c0", 0, slope, intercept, 0.42F);
+        assertLeftBracketGapAtLeastCoordinates("1680fcfc-81b9-486e-85aa-1e2cdb348d07", 0, slope, intercept, 0.42D);
+        assertRightBracketGapAtLeast("1680fcfc-81b9-486e-85aa-1e2cdb348d07", 0, slope, intercept, 3D);
         assertBracketGapsAtLeast("04cb3ecb-9419-4b07-89e8-19ed0fbac5e6", 0, slope, intercept, 0.75F);
 
         Chemical sodiumAcetate = Chemical.parseMol(new File(getClass().getResource("/sodium_acetate.mol").getFile()));
@@ -143,6 +144,59 @@ public class TestRenderSgroupBrackets {
 
         Assert.assertEquals("Sodium acetate hydrate should keep its existing closing bracket atom gap",
                 0.42F, sodiumAtomGap, 0.001F);
+    }
+
+    @Test
+    public void leftSideImplicitHydrogenLabelsClearOpeningBracket() throws Exception {
+        double slope = 0.01;
+        double intercept = 0.46;
+
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/KTD4ED4NYA.mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(0);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+        double perChar = slope * Math.min(NchemicalRenderer.getCoordinateSpread(chemical).x, 2.5D) + intercept;
+
+        Assert.assertTrue("Opening bracket should clear the terminal H3C label",
+                getLeftAtomGap(sgroup, rect) >= (3D * perChar) - 0.001D);
+        assertLeftBracketGapAtLeast("C1O32IJ4HS", 0, slope, intercept, 2D);
+        assertLeftBracketGapAtLeast("17VU4Z4W88", 0, slope, intercept, 1.75D);
+        assertLeftBracketGapAtMost("17VU4Z4W88", 0, slope, intercept, 1.75D);
+    }
+
+    @Test
+    public void broadMoleculeHydrateLabelsClearOpeningBracket() throws Exception {
+        double slope = 0.01;
+        double intercept = 0.46;
+
+        assertLeftBracketGapAtLeast("overlapping_bracket_and_atom_3", 0, slope, intercept, 3.5D);
+        assertLeftBracketGapAtLeast("overlapping_bracket_and_atom_4", 0, slope, intercept, 3.5D);
+        assertLeftBracketGapAtLeast("R6DXU4WAY9", 0, slope, intercept, 3.5D);
+    }
+
+    @Test
+    public void compactOxygenHydrogenLabelsClearBrackets() throws Exception {
+        assertRightBracketGapAtLeast("J3OC7JVS54", 0, 0.01, 0.46, 2D);
+        assertLeftImplicitHydrogenLabelGapAtLeast("J3OC7JVS54", 1, 0.01, 0.46, "O", 2D);
+        assertRightBracketGapAtLeast("ZL7OV5621O", 0, 0.01, 0.46, 3D);
+        assertLeftBracketGapAtLeastCoordinates("potassium_acetate_hydrate", 0, 0.01, 0.30, 0.95D);
+        assertRightBracketGapAtMostCoordinates("potassium_acetate_hydrate", 0, 0.01, 0.46, 0.95D);
+    }
+
+    @Test
+    public void nearbyExternalFragmentLimitsClosingBracketExpansion() throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/14bb185c-ed7a-4b4f-b496-e085579aa4c0.mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(0);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, 0.01, 0.46);
+        float leftGap = getLeftAtomGap(sgroup, rect);
+        float rightGap = getRightAtomGap(sgroup, rect);
+        double perChar = 0.01 * Math.min(NchemicalRenderer.getCoordinateSpread(chemical).x, 2.5D) + 0.46;
+
+        Assert.assertTrue("Opening bracket should retain base atom clearance", leftGap >= 0.42F - 0.001F);
+        Assert.assertTrue("Opening bracket should not extend into the nearby left-hand fragment label", leftGap <= 0.43F);
+        Assert.assertTrue("Closing bracket should clear the terminal methyl hydrogens",
+                rightGap >= (2D * perChar) - 0.001D);
+        Assert.assertTrue("Closing bracket should remain capped near the nearby right-hand fragment",
+                rightGap <= (2D * perChar) + 0.001D);
     }
 
     @Test
@@ -181,7 +235,7 @@ public class TestRenderSgroupBrackets {
     @Test
     public void renderWithBracketsCoordsOnOff() {
         RendererOptions rendererOptions = new RendererOptions();
-        double slope =0.0186;
+        double slope =0.01;
         double intercept = 0.455;
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
@@ -254,8 +308,8 @@ public class TestRenderSgroupBrackets {
     @Test
     public void renderWithBracketsMoleculeWithIssues() {
         RendererOptions rendererOptions = new RendererOptions();
-        double slope =0.03;
-        double intercept = 0.6;
+        double slope =0.01;
+        double intercept = 0.46;
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
         NchemicalRenderer renderer = new NchemicalRenderer(rendererOptions);
@@ -287,12 +341,45 @@ public class TestRenderSgroupBrackets {
     @Test
     public void renderWithBrackets1MoleculeWithIssues() {
         RendererOptions rendererOptions = new RendererOptions();
-        double slope =0.03;
-        double intercept = 0.5;
+        double slope =0.01;
+        double intercept = 0.46;
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
         NchemicalRenderer renderer = new NchemicalRenderer(rendererOptions);
         List<String> chemicalNames = Arrays.asList("R6DXU4WAY9");
+        List<Boolean> results = chemicalNames.stream()
+                .map(n -> {
+                    try {
+                        String name = String.format("/%s.mol", n);
+                        Chemical c = Chemical.parseMol(new File(getClass().getResource(name).getFile()));
+                        Point2D.Double spread = NchemicalRenderer.getCoordinateSpread(c);
+                        BufferedImage actual = renderer.createImage(c, 600);
+                        Double lastUsed = renderer.getLastUsedFactor();
+                        String imageFileName = String.format("images/%s_actual_%s_slope_%.2f_intercept_%.2f_factor_%.2f.png",
+                                MolWitch.getModuleName(), n, slope, intercept, lastUsed);
+                        File imageFile = new File(imageFileName);
+                        imageFile.getParentFile().mkdirs();
+                        ImageIO.write(actual, "PNG", imageFile);
+                        log.info("wrote file to {} spread: {}", imageFile.getAbsolutePath(), spread.getX());
+                        return imageFile.exists();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+        Assert.assertTrue(results.stream().allMatch(r -> r));
+    }
+
+    @Test
+    public void renderWithBrackets1MoleculeWithIssues2() {
+        RendererOptions rendererOptions = new RendererOptions();
+        double slope =0.01;
+        double intercept = 0.46;
+        rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
+        rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
+        NchemicalRenderer renderer = new NchemicalRenderer(rendererOptions);
+        List<String> chemicalNames = Arrays.asList("KTD4ED4NYA", "C1O32IJ4HS", "17VU4Z4W88");
         List<Boolean> results = chemicalNames.stream()
                 .map(n -> {
                     try {
@@ -327,6 +414,75 @@ public class TestRenderSgroupBrackets {
             Point2D boundingBox = NchemicalRenderer.getCoordinateSpread(chemical);
             Assert.assertEquals(expectedXSpreads.get(i), boundingBox.getX(), 0.001);
          }
+    }
+
+    private void assertLeftBracketGapAtLeast(String resourceName, int sgroupIndex, double slope, double intercept,
+            double expectedCharCount) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(sgroupIndex);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+        double perChar = slope * Math.min(NchemicalRenderer.getCoordinateSpread(chemical).x, 2.5D) + intercept;
+
+        Assert.assertTrue("Opening bracket should clear the rendered left-side label",
+                getLeftAtomGap(sgroup, rect) >= (expectedCharCount * perChar) - 0.001D);
+    }
+
+    private void assertLeftBracketGapAtMost(String resourceName, int sgroupIndex, double slope, double intercept,
+            double expectedCharCount) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(sgroupIndex);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+        double perChar = slope * Math.min(NchemicalRenderer.getCoordinateSpread(chemical).x, 2.5D) + intercept;
+
+        Assert.assertTrue("Opening bracket should not over-expand into nearby bonds",
+                getLeftAtomGap(sgroup, rect) <= (expectedCharCount * perChar) + 0.001D);
+    }
+
+    private void assertRightBracketGapAtLeast(String resourceName, int sgroupIndex, double slope, double intercept,
+            double expectedCharCount) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(sgroupIndex);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+        double perChar = slope * Math.min(NchemicalRenderer.getCoordinateSpread(chemical).x, 2.5D) + intercept;
+
+        Assert.assertTrue("Closing bracket should clear the rendered right-side label",
+                getRightAtomGap(sgroup, rect) >= (expectedCharCount * perChar) - 0.001D);
+    }
+
+    private void assertLeftBracketGapAtLeastCoordinates(String resourceName, int sgroupIndex, double slope,
+            double intercept, double expectedGap) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(sgroupIndex);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+
+        Assert.assertTrue("Opening bracket should clear the rendered left-side label",
+                getLeftAtomGap(sgroup, rect) >= expectedGap - 0.001D);
+    }
+
+    private void assertRightBracketGapAtMostCoordinates(String resourceName, int sgroupIndex, double slope,
+            double intercept, double expectedGap) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(sgroupIndex);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+
+        Assert.assertTrue("Closing bracket should not keep unused right-side padding",
+                getRightAtomGap(sgroup, rect) <= expectedGap + 0.001D);
+    }
+
+    private void assertLeftImplicitHydrogenLabelGapAtLeast(String resourceName, int sgroupIndex, double slope,
+            double intercept, String atomSymbol, double expectedCharCount) throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/" + resourceName + ".mol").getFile()));
+        SGroup sgroup = chemical.getSGroups().get(sgroupIndex);
+        Rectangle2D.Float rect = getBracketRect(chemical, sgroup, slope, intercept);
+        double perChar = slope * Math.min(NchemicalRenderer.getCoordinateSpread(chemical).x, 2.5D) + intercept;
+        double minLabelAtomGap = sgroup.getAtoms()
+                .filter(atom -> atomSymbol.equals(atom.getSymbol()) && atom.getImplicitHCount() > 0)
+                .mapToDouble(atom -> atom.getAtomCoordinates().getX() - rect.getX())
+                .min()
+                .orElseThrow(IllegalStateException::new);
+
+        Assert.assertTrue("Opening bracket should clear the rendered left-side implicit hydrogen label",
+                minLabelAtomGap >= (expectedCharCount * perChar) - 0.001D);
     }
 
     private void assertBracketGapsAtLeast(String resourceName, int sgroupIndex, double slope, double intercept,
