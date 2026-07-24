@@ -59,6 +59,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 	private static final double MIN_COMPACT_HYDRATE_LABEL_PADDING = 0.95D;
 	private static final double MAX_COMPACT_HYDRATE_UNUSED_RIGHT_PADDING = 0.95D;
 	private static final double ONE_BOND_OXYGEN_HYDROGEN_EXTRA_CHARS = 1D;
+	private static final double CAPPED_TERMINAL_CARBON_HYDROGEN_LABEL_CHARS = 2D;
 	private static final double BROAD_COMPACT_HYDRATE_EXTRA_CHARS = 1.5D;
 	private static final double MIN_EXTERNAL_LABEL_BRACKET_ATOM_GAP = 0.42D;
 	private static final double NEARBY_FRAGMENT_BRACKET_GAP_FRACTION = 0.50D;
@@ -1681,7 +1682,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 						false, perChar);
 				double labelPadding = paddingChars * perChar;
 				if(terminalCarbonHydrogen){
-					labelPadding = Math.min(labelPadding, WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP);
+					double cappedLabelPadding = CAPPED_TERMINAL_CARBON_HYDROGEN_LABEL_CHARS * perChar;
+					labelPadding = Math.min(labelPadding, Math.max(WIDE_SINGLE_SGROUP_EDGE_ATOM_GAP,
+							cappedLabelPadding));
 				}
 				if(horizontalPosition == 1){
 					right = Math.max(right, getInternalRightLabelGap(atom, atomBounds, labelPadding));

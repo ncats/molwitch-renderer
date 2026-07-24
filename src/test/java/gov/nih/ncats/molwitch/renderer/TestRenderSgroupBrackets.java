@@ -158,6 +158,7 @@ public class TestRenderSgroupBrackets {
 
         Assert.assertTrue("Opening bracket should clear the terminal H3C label",
                 getLeftAtomGap(sgroup, rect) >= (3D * perChar) - 0.001D);
+        assertLeftBracketGapAtLeast("C1O32IJ4HS", 0, slope, intercept, 2D);
     }
 
     @Test
@@ -186,11 +187,14 @@ public class TestRenderSgroupBrackets {
         Rectangle2D.Float rect = getBracketRect(chemical, sgroup, 0.01, 0.46);
         float leftGap = getLeftAtomGap(sgroup, rect);
         float rightGap = getRightAtomGap(sgroup, rect);
+        double perChar = 0.01 * Math.min(NchemicalRenderer.getCoordinateSpread(chemical).x, 2.5D) + 0.46;
 
         Assert.assertTrue("Opening bracket should retain base atom clearance", leftGap >= 0.42F - 0.001F);
         Assert.assertTrue("Opening bracket should not extend into the nearby left-hand fragment label", leftGap <= 0.43F);
-        Assert.assertTrue("Closing bracket should clear the terminal methyl hydrogens", rightGap >= 0.75F - 0.001F);
-        Assert.assertTrue("Closing bracket should remain capped near the nearby right-hand fragment", rightGap <= 0.76F);
+        Assert.assertTrue("Closing bracket should clear the terminal methyl hydrogens",
+                rightGap >= (2D * perChar) - 0.001D);
+        Assert.assertTrue("Closing bracket should remain capped near the nearby right-hand fragment",
+                rightGap <= (2D * perChar) + 0.001D);
     }
 
     @Test
@@ -373,7 +377,7 @@ public class TestRenderSgroupBrackets {
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_SLOPE, slope);
         rendererOptions.setDrawPropertyValue(RendererOptions.DrawProperties.BRACKET_POSITION_INTERCEPT, intercept);
         NchemicalRenderer renderer = new NchemicalRenderer(rendererOptions);
-        List<String> chemicalNames = Arrays.asList("KTD4ED4NYA");
+        List<String> chemicalNames = Arrays.asList("KTD4ED4NYA", "C1O32IJ4HS");
         List<Boolean> results = chemicalNames.stream()
                 .map(n -> {
                     try {

@@ -32,6 +32,7 @@ public class BracketGeometryProbeTest {
         lines.add(probe("14bb185c-ed7a-4b4f-b496-e085579aa4c0", 0, 0.01, 0.46));
         lines.add(probe("1680fcfc-81b9-486e-85aa-1e2cdb348d07", 0, 0.01, 0.455));
         lines.add(probe("04cb3ecb-9419-4b07-89e8-19ed0fbac5e6", 0, 0.01, 0.455));
+        lines.add(probe("C1O32IJ4HS", 0, 0.01, 0.46));
         lines.add(probe("potassium_acetate_hydrate", 0, 0.01, 0.46));
         lines.add(probe("sodium_acetate", 0, 0.01, 0.455));
         lines.add(probe("Y3NG9WF08W", 0, 0.01, 0.455));
