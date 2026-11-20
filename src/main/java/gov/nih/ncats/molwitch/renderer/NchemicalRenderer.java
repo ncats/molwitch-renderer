@@ -1358,6 +1358,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				lowestBracketX[0] = Double.NEGATIVE_INFINITY;
 				highestBracketX[0] = Double.POSITIVE_INFINITY;
 				List<AtomCoordinates> coords = new ArrayList<>(4);
+				double labelFontSize = getBracketLabelFontSize(chemical);
 				boolean expandCompactOxygenLabelPadding = shouldExpandCompactOxygenLabelPadding(cg, coordinateSpread);
 				double effectiveSpread = Math.min(coordinateSpread.x, MAX_BRACKET_LABEL_PADDING_SPREAD);
 				double perChar = bracketPositioningSlope * effectiveSpread + bracketPositioningIntercept;
@@ -1412,7 +1413,16 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 							charsLeft += Math.max(paddingChars/2, 1);
 						}
 					}
-					double yDelta = bracketHeight[0] == null ?  0.1 : bracketHeight[0]/2;
+					// Horizontal labels need their own height, not half the height of the entire SGroup.
+					double yDelta = bracketHeight[0] == null ? 0.1
+							: Math.min(bracketHeight[0]/2, labelFontSize * 0.75D);
+					if(expandCompactOxygenLabelPadding && perChar > 0D && "O".equals(a.getSymbol())
+							&& a.getBondCount() == 0 && a.getImplicitHCount() > 0){
+						// Keep the broad-molecule allowance proportional to the rendered text size.
+						double labelLimit = Math.max(MIN_COMPACT_HYDRATE_LABEL_PADDING, 2D * labelFontSize);
+						charsLeft = Math.min(charsLeft, labelLimit / perChar);
+						charsRight = Math.min(charsRight, labelLimit / perChar);
+					}
 					lastUsedFactor = perChar;
 					//see how we draw H
 					double currentPaddingLeft = charsLeft * perChar;
@@ -1529,6 +1539,22 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				(float) rt.getY(), (float) rt.getWidth(),
 				(float) rt.getHeight());
 		return r;
+	}
+
+	private double getBracketLabelFontSize(Chemical chemical) {
+		double totalLength = 0D;
+		int bondCount = 0;
+		for(Bond bond : chemical.getBonds()){
+			double length = Math.sqrt(bond.getAtom1().getAtomCoordinates()
+					.distanceSquaredTo(bond.getAtom2().getAtomCoordinates()));
+			if(Double.isFinite(length) && length > 0D){
+				totalLength += length;
+				bondCount++;
+			}
+		}
+		double averageBondLength = bondCount == 0
+				? displayParams.getDrawPropertyValue(DrawProperties.BOND_EXPECTED_LENGTH) : totalLength / bondCount;
+		return averageBondLength * displayParams.getDrawPropertyValue(DrawProperties.ATOM_LABEL_FONT_FRACTION);
 	}
 
 	private int getHorizontalAttachmentPosition(Atom atom, String attachment, int supportedPosition) {
