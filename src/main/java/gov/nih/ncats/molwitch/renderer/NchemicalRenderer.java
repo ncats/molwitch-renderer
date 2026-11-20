@@ -12,6 +12,7 @@ import gov.nih.ncats.molwitch.renderer.utils.MathUtilities;
 
 import java.awt.*;
 import java.awt.font.GlyphVector;
+import java.awt.font.FontRenderContext;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -1133,6 +1134,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		g2.setStroke(solid);
 
 		if (!skeleton && drawSymbols) {
+			separateExternalIonLabels(c, toAddLabelsD, g2.getFontRenderContext(), solidThin.getLineWidth());
 			for (int i = 0; i < toAddLabelsD.size(); i++) {
 				DisplayLabel dl = toAddLabelsD.get(i);
 				g2.setFont(dl.dfont);
@@ -1208,7 +1210,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				if(rect == null){
 					continue;
 				}
-				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect);
+				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect, toAddLabelsD);
 
 			}
 
@@ -1217,7 +1219,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				if(rect == null){
 					continue;
 				}
-				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect);
+				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect, toAddLabelsD);
 			}
 		}
 		 
@@ -1255,7 +1257,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		}
 	}
 
-	private void drawBracketedSgroup(Graphics2DTemp g2, float maxX, float maxY, float minX, float minY, AffineTransformParent centerTransform, BasicStroke solidThin, float fsize, SGroup cg, Rectangle2D.Float rect) {
+	private void drawBracketedSgroup(Graphics2DTemp g2, float maxX, float maxY, float minX, float minY, AffineTransformParent centerTransform, BasicStroke solidThin, float fsize, SGroup cg, Rectangle2D.Float rect, List<DisplayLabel> labels) {
 		FontMetrics fm;
 		float[] coord = new float[] { 	rect.x, rect.y, rect.x,
 				rect.y + rect.height, rect.x + rect.width,
@@ -1265,6 +1267,30 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 
 		centerTransform.transform(coord, 0, ncoord, 0, 4);
+		List<Rectangle2D> internalLabels = new ArrayList<>();
+		List<Rectangle2D> externalIonLabels = new ArrayList<>();
+		Set<Atom> groupAtoms = cg.getAtoms().collect(Collectors.toSet());
+		SgroupAtomBounds atomBounds = getSgroupAtomBounds(cg);
+		for(DisplayLabel label : labels){
+			Atom atom = label.atomGroup;
+			if(atom == null){
+				continue;
+			}
+			Rectangle2D bounds = getLabelInkBounds(label, g2.getFontRenderContext());
+			if(groupAtoms.contains(atom)){
+				internalLabels.add(bounds);
+			} else if(atom.getBondCount() == 0 && atom.getCharge() != 0
+					&& (atom.getAtomCoordinates().getX() < atomBounds.minX
+							|| atom.getAtomCoordinates().getX() > atomBounds.maxX)){
+				externalIonLabels.add(bounds);
+			}
+		}
+		Rectangle2D separated = separateBracketFromExternalIonLabels(
+				new Rectangle2D.Double(ncoord[0], Math.min(ncoord[1], ncoord[3]),
+						ncoord[4] - ncoord[0], Math.abs(ncoord[3] - ncoord[1])),
+				internalLabels, externalIonLabels, solidThin.getLineWidth());
+		ncoord[0] = ncoord[2] = (float) separated.getMinX();
+		ncoord[4] = ncoord[6] = (float) separated.getMaxX();
 		Rectangle2D.Float nrect = new Rectangle2D.Float(ncoord[0], ncoord[1],
 				Math.abs(ncoord[4]-ncoord[0]), Math.abs(ncoord[3]-ncoord[1]));
 
@@ -1310,6 +1336,82 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				drawString(g2, " " + sups, ncoord[6], ncoord[7] + h1 * .33f);
 			}
 		}
+	}
+
+	private static Rectangle2D getLabelInkBounds(DisplayLabel label, FontRenderContext context) {
+		Rectangle2D ink = label.dfont.createGlyphVector(context, label.lab).getVisualBounds();
+		return new Rectangle2D.Double(ink.getX() + label.x, ink.getY() + label.y,
+				ink.getWidth(), ink.getHeight());
+	}
+
+	static void separateExternalIonLabels(Chemical chemical, List<DisplayLabel> labels,
+			FontRenderContext context, double strokeWidth) {
+		for(SGroup group : chemical.getSGroups()){
+			if(group.getType() == SGroupType.SUPERATOM_OR_ABBREVIATION || !group.hasBrackets()){
+				continue;
+			}
+			Set<Atom> members = group.getAtoms().collect(Collectors.toSet());
+			Rectangle2D internal = null;
+			for(DisplayLabel label : labels){
+				if(members.contains(label.atomGroup)){
+					Rectangle2D ink = getLabelInkBounds(label, context);
+					internal = internal == null ? ink : internal.createUnion(ink);
+				}
+			}
+			if(internal == null){
+				continue;
+			}
+			double minX = members.stream().mapToDouble(a -> a.getAtomCoordinates().getX()).min().orElse(0D);
+			double maxX = members.stream().mapToDouble(a -> a.getAtomCoordinates().getX()).max().orElse(0D);
+			for(Atom ion : chemical.getAtoms()){
+				if(members.contains(ion) || ion.getBondCount() != 0 || ion.getCharge() == 0){
+					continue;
+				}
+				Rectangle2D external = null;
+				for(DisplayLabel label : labels){
+					if(ion.equals(label.atomGroup)){
+						Rectangle2D ink = getLabelInkBounds(label, context);
+						external = external == null ? ink : external.createUnion(ink);
+					}
+				}
+				if(external == null || external.getMaxY() < internal.getMinY()
+						|| external.getMinY() > internal.getMaxY()){
+					continue;
+				}
+				// Reserve a narrow channel for the bracket, moving only an unattached ion's text.
+				double shift = 0D;
+				if(ion.getAtomCoordinates().getX() < minX){
+					shift = Math.min(0D, internal.getMinX() - 4D * strokeWidth - external.getMaxX());
+				} else if(ion.getAtomCoordinates().getX() > maxX){
+					shift = Math.max(0D, internal.getMaxX() + 4D * strokeWidth - external.getMinX());
+				}
+				for(DisplayLabel label : labels){
+					if(ion.equals(label.atomGroup)){
+						label.x += (float) shift;
+					}
+				}
+			}
+		}
+	}
+
+	static Rectangle2D separateBracketFromExternalIonLabels(Rectangle2D bracket,
+			List<Rectangle2D> internalLabels, List<Rectangle2D> externalLabels, double strokeWidth) {
+		double internalLeft = internalLabels.stream().mapToDouble(Rectangle2D::getMinX).min().orElse(bracket.getMinX());
+		double internalRight = internalLabels.stream().mapToDouble(Rectangle2D::getMaxX).max().orElse(bracket.getMaxX());
+		double left = bracket.getMinX();
+		double right = bracket.getMaxX();
+		// Use visible glyph bounds, including the ion's charge, instead of character-count estimates.
+		for(Rectangle2D external : externalLabels){
+			if(external.getMaxY() < bracket.getMinY() || external.getMinY() > bracket.getMaxY()){
+				continue;
+			}
+			if(external.getMaxX() < internalLeft && external.getMaxX() + strokeWidth > left){
+				left = Math.max(left, (external.getMaxX() + internalLeft) / 2D);
+			} else if(external.getMinX() > internalRight && external.getMinX() - strokeWidth < right){
+				right = Math.min(right, (external.getMinX() + internalRight) / 2D);
+			}
+		}
+		return new Rectangle2D.Double(left, bracket.getY(), right - left, bracket.getHeight());
 	}
 
 	private float computeBracketArmLength(float defaultArmLength, float bracketX, float atomDirection,
