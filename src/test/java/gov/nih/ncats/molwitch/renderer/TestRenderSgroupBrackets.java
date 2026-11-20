@@ -31,7 +31,7 @@ public class TestRenderSgroupBrackets {
 
         List<String> chemicalNames = Arrays.asList("sodium_acetate", "NFX970DSI2", "V341SPY84U", "J3OC7JVS54", "4VN69WUP7N",
                 "4VN69WUP7N-dihydrate", "B37782955L","potassium_acetate_hydrate", "potassium_propanoate_hydrate",
-                "ZL7OV5621O", "ZL7OV5621O_hydrate", "OC4598NZEQ"); //"F3LJ1K2O96",
+                "ZL7OV5621O", "ZL7OV5621O_hydrate", "OC4598NZEQ", "IRT310VU4Z", "5Q187997EE");
         List<Boolean> results= chemicalNames.stream()
                 .map(n->{
                     try {
@@ -91,6 +91,25 @@ public class TestRenderSgroupBrackets {
                 Assert.assertTrue(results.stream().allMatch(r -> r));
             }
         }
+    }
+
+    @Test
+    public void smallCoordinateHydratesDoNotInheritBroadMoleculePadding() throws Exception {
+        for(String name : Arrays.asList("5Q187997EE", "IRT310VU4Z")) {
+            int hydrateIndex = name.equals("IRT310VU4Z") ? 1 : 0;
+            BracketPadding padding = getBracketPadding(name, hydrateIndex, 0.01, 0.46);
+            Assert.assertTrue("Hydrate opening bracket should still clear H2O: " + name,
+                    padding.left >= 0.95D - 0.001D);
+            Assert.assertTrue("Hydrate opening bracket should follow the small label size: " + name,
+                    padding.left <= 1.20D);
+        }
+    }
+
+    @Test
+    public void horizontalLabelsDoNotIncreaseTallSgroupHeight() throws Exception {
+        Rectangle2D.Float rect = getBracketRect("IRT310VU4Z", 0, 0.01, 0.46);
+        Assert.assertEquals("Keep the supplied lower bracket edge", -3.0527D, rect.getMinY(), 0.001D);
+        Assert.assertEquals("Keep the supplied upper bracket edge", -0.1018D, rect.getMaxY(), 0.001D);
     }
 
     @Test
