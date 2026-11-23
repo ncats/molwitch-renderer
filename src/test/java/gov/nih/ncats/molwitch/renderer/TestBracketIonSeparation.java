@@ -14,6 +14,23 @@ import static org.junit.Assert.*;
 
 public class TestBracketIonSeparation {
     @Test
+    public void ionsInAnotherBracketedGroupStayWithTheirBrackets() throws Exception {
+        Chemical chemical = Chemical.parseMol(new File(getClass().getResource(
+                "/bracket-issues-20261123/TR11HQD73G.mol").toURI()));
+        Font font = new Font("SansSerif", Font.PLAIN, 30);
+        FontRenderContext context = new FontRenderContext(null, true, true);
+        NchemicalRenderer.DisplayLabel potassium = new NchemicalRenderer.DisplayLabel("K+", font, 0, 30, null);
+        NchemicalRenderer.DisplayLabel cyanide = new NchemicalRenderer.DisplayLabel("CN", font, 20, 30, null);
+        potassium.atomGroup = chemical.getAtom(4);
+        cyanide.atomGroup = chemical.getAtom(2);
+
+        NchemicalRenderer.separateExternalIonLabels(chemical, Arrays.asList(potassium, cyanide), context, 2D);
+
+        assertEquals("Keep bracketed potassium at its atom position", 0F, potassium.x, 0F);
+        assertEquals(20F, cyanide.x, 0F);
+    }
+
+    @Test
     public void magnesiumChargeAndMethylLabelLeaveRoomForOpeningBracket() throws Exception {
         Chemical chemical = Chemical.parseMol(new File(getClass().getResource("/IRT310VU4Z.mol").toURI()));
         Font font = new Font("SansSerif", Font.PLAIN, 30);

@@ -1210,7 +1210,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				if(rect == null){
 					continue;
 				}
-				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect, toAddLabelsD);
+				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect, toAddLabelsD, c);
 
 			}
 
@@ -1219,7 +1219,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				if(rect == null){
 					continue;
 				}
-				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect, toAddLabelsD);
+				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect, toAddLabelsD, c);
 			}
 		}
 		 
@@ -1257,7 +1257,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		}
 	}
 
-	private void drawBracketedSgroup(Graphics2DTemp g2, float maxX, float maxY, float minX, float minY, AffineTransformParent centerTransform, BasicStroke solidThin, float fsize, SGroup cg, Rectangle2D.Float rect, List<DisplayLabel> labels) {
+	private void drawBracketedSgroup(Graphics2DTemp g2, float maxX, float maxY, float minX, float minY, AffineTransformParent centerTransform, BasicStroke solidThin, float fsize, SGroup cg, Rectangle2D.Float rect, List<DisplayLabel> labels, Chemical chemical) {
 		FontMetrics fm;
 		float[] coord = new float[] { 	rect.x, rect.y, rect.x,
 				rect.y + rect.height, rect.x + rect.width,
@@ -1285,12 +1285,27 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				externalIonLabels.add(bounds);
 			}
 		}
-		Rectangle2D separated = separateBracketFromExternalIonLabels(
-				new Rectangle2D.Double(ncoord[0], Math.min(ncoord[1], ncoord[3]),
-						ncoord[4] - ncoord[0], Math.abs(ncoord[3] - ncoord[1])),
+		Rectangle2D screenBounds = new Rectangle2D.Double(ncoord[0], Math.min(ncoord[1], ncoord[3]),
+				ncoord[4] - ncoord[0], Math.abs(ncoord[3] - ncoord[1]));
+		if(isCompactClosedGroup(cg, chemical) && !internalLabels.isEmpty()){
+			// At this point font, hydrogens, isotope and charge placement are all known.
+			// Fit the visible label instead of retaining the character-count estimate.
+			List<Rectangle2D> contents = new ArrayList<>(internalLabels);
+			for(Atom atom : groupAtoms){
+				float[] point = new float[2];
+				centerTransform.transform(new float[]{(float) atom.getAtomCoordinates().getX(),
+						(float) atom.getAtomCoordinates().getY()}, 0, point, 0, 1);
+				contents.add(new Rectangle2D.Double(point[0], point[1], 0, 0));
+			}
+			screenBounds = fitBracketToContents(screenBounds, contents,
+					Math.max(2D * solidThin.getLineWidth(), fsize * 0.18D));
+		}
+		Rectangle2D separated = separateBracketFromExternalIonLabels(screenBounds,
 				internalLabels, externalIonLabels, solidThin.getLineWidth());
 		ncoord[0] = ncoord[2] = (float) separated.getMinX();
 		ncoord[4] = ncoord[6] = (float) separated.getMaxX();
+		ncoord[1] = ncoord[5] = (float) separated.getMaxY();
+		ncoord[3] = ncoord[7] = (float) separated.getMinY();
 		Rectangle2D.Float nrect = new Rectangle2D.Float(ncoord[0], ncoord[1],
 				Math.abs(ncoord[4]-ncoord[0]), Math.abs(ncoord[3]-ncoord[1]));
 
@@ -1338,6 +1353,36 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		}
 	}
 
+	Rectangle2D fitBracketToContents(Rectangle2D bracket, List<Rectangle2D> contents, double gap) {
+		if(contents.isEmpty()){
+			return bracket;
+		}
+		Rectangle2D ink = (Rectangle2D) contents.get(0).clone();
+		for(Rectangle2D bounds : contents){
+			Rectangle2D.union(ink, bounds, ink);
+		}
+		double top = Math.min(bracket.getMinY(), ink.getMinY() - gap);
+		double bottom = Math.max(bracket.getMaxY(), ink.getMaxY() + gap);
+		return new Rectangle2D.Double(ink.getMinX() - gap, top,
+				ink.getWidth() + 2D * gap, bottom - top);
+	}
+
+	private boolean isCompactClosedGroup(SGroup group, Chemical chemical) {
+		Set<Atom> members = group.getAtoms().collect(Collectors.toSet());
+		// Count displayed positions: MUL groups can contain many coincident copies.
+		long positions = members.stream().map(a -> a.getAtomCoordinates()).distinct().count();
+		if(positions > COMPACT_SGROUP_LABEL_PADDING_ATOM_COUNT_CUTOFF || members.isEmpty()
+				|| members.stream().flatMap(a -> a.getBonds().stream())
+				.anyMatch(b -> !members.contains(b.getAtom1()) || !members.contains(b.getAtom2()))){
+			return false;
+		}
+		// An enclosing group also has to reserve space for its children's brackets.
+		return chemical.getSGroups().stream().noneMatch(child -> child != group
+				&& child.getType() != SGroupType.SUPERATOM_OR_ABBREVIATION && child.hasBrackets()
+				&& child.getAtoms().count() < members.size()
+				&& child.getAtoms().allMatch(members::contains));
+	}
+
 	private static Rectangle2D getLabelInkBounds(DisplayLabel label, FontRenderContext context) {
 		Rectangle2D ink = label.dfont.createGlyphVector(context, label.lab).getVisualBounds();
 		return new Rectangle2D.Double(ink.getX() + label.x, ink.getY() + label.y,
@@ -1346,6 +1391,9 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 	static void separateExternalIonLabels(Chemical chemical, List<DisplayLabel> labels,
 			FontRenderContext context, double strokeWidth) {
+		Set<Atom> bracketedAtoms = chemical.getSGroups().stream()
+				.filter(g -> g.getType() != SGroupType.SUPERATOM_OR_ABBREVIATION && g.hasBrackets())
+				.flatMap(SGroup::getAtoms).collect(Collectors.toSet());
 		for(SGroup group : chemical.getSGroups()){
 			if(group.getType() == SGroupType.SUPERATOM_OR_ABBREVIATION || !group.hasBrackets()){
 				continue;
@@ -1364,7 +1412,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 			double minX = members.stream().mapToDouble(a -> a.getAtomCoordinates().getX()).min().orElse(0D);
 			double maxX = members.stream().mapToDouble(a -> a.getAtomCoordinates().getX()).max().orElse(0D);
 			for(Atom ion : chemical.getAtoms()){
-				if(members.contains(ion) || ion.getBondCount() != 0 || ion.getCharge() == 0){
+				if(bracketedAtoms.contains(ion) || ion.getBondCount() != 0 || ion.getCharge() == 0){
 					continue;
 				}
 				Rectangle2D external = null;
