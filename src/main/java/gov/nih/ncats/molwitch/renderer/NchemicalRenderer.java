@@ -12,6 +12,7 @@ import gov.nih.ncats.molwitch.renderer.utils.MathUtilities;
 
 import java.awt.*;
 import java.awt.font.GlyphVector;
+import java.awt.font.FontRenderContext;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -1133,6 +1134,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		g2.setStroke(solid);
 
 		if (!skeleton && drawSymbols) {
+			separateExternalIonLabels(c, toAddLabelsD, g2.getFontRenderContext(), solidThin.getLineWidth());
 			for (int i = 0; i < toAddLabelsD.size(); i++) {
 				DisplayLabel dl = toAddLabelsD.get(i);
 				g2.setFont(dl.dfont);
@@ -1208,7 +1210,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				if(rect == null){
 					continue;
 				}
-				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect);
+				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect, toAddLabelsD, c);
 
 			}
 
@@ -1217,7 +1219,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				if(rect == null){
 					continue;
 				}
-				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect);
+				drawBracketedSgroup(g2, (float) maxX, (float) maxY, (float) minX, (float) minY, centerTransform, solidThin, fsize, sgroup, rect, toAddLabelsD, c);
 			}
 		}
 		 
@@ -1255,7 +1257,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 		}
 	}
 
-	private void drawBracketedSgroup(Graphics2DTemp g2, float maxX, float maxY, float minX, float minY, AffineTransformParent centerTransform, BasicStroke solidThin, float fsize, SGroup cg, Rectangle2D.Float rect) {
+	private void drawBracketedSgroup(Graphics2DTemp g2, float maxX, float maxY, float minX, float minY, AffineTransformParent centerTransform, BasicStroke solidThin, float fsize, SGroup cg, Rectangle2D.Float rect, List<DisplayLabel> labels, Chemical chemical) {
 		FontMetrics fm;
 		float[] coord = new float[] { 	rect.x, rect.y, rect.x,
 				rect.y + rect.height, rect.x + rect.width,
@@ -1265,6 +1267,45 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 
 
 		centerTransform.transform(coord, 0, ncoord, 0, 4);
+		List<Rectangle2D> internalLabels = new ArrayList<>();
+		List<Rectangle2D> externalIonLabels = new ArrayList<>();
+		Set<Atom> groupAtoms = cg.getAtoms().collect(Collectors.toSet());
+		SgroupAtomBounds atomBounds = getSgroupAtomBounds(cg);
+		for(DisplayLabel label : labels){
+			Atom atom = label.atomGroup;
+			if(atom == null){
+				continue;
+			}
+			Rectangle2D bounds = getLabelInkBounds(label, g2.getFontRenderContext());
+			if(groupAtoms.contains(atom)){
+				internalLabels.add(bounds);
+			} else if(atom.getBondCount() == 0 && atom.getCharge() != 0
+					&& (atom.getAtomCoordinates().getX() < atomBounds.minX
+							|| atom.getAtomCoordinates().getX() > atomBounds.maxX)){
+				externalIonLabels.add(bounds);
+			}
+		}
+		Rectangle2D screenBounds = new Rectangle2D.Double(ncoord[0], Math.min(ncoord[1], ncoord[3]),
+				ncoord[4] - ncoord[0], Math.abs(ncoord[3] - ncoord[1]));
+		if(isCompactClosedGroup(cg, chemical) && !internalLabels.isEmpty()){
+			// At this point font, hydrogens, isotope and charge placement are all known.
+			// Fit the visible label instead of retaining the character-count estimate.
+			List<Rectangle2D> contents = new ArrayList<>(internalLabels);
+			for(Atom atom : groupAtoms){
+				float[] point = new float[2];
+				centerTransform.transform(new float[]{(float) atom.getAtomCoordinates().getX(),
+						(float) atom.getAtomCoordinates().getY()}, 0, point, 0, 1);
+				contents.add(new Rectangle2D.Double(point[0], point[1], 0, 0));
+			}
+			screenBounds = fitBracketToContents(screenBounds, contents,
+					Math.max(2D * solidThin.getLineWidth(), fsize * 0.18D));
+		}
+		Rectangle2D separated = separateBracketFromExternalIonLabels(screenBounds,
+				internalLabels, externalIonLabels, solidThin.getLineWidth());
+		ncoord[0] = ncoord[2] = (float) separated.getMinX();
+		ncoord[4] = ncoord[6] = (float) separated.getMaxX();
+		ncoord[1] = ncoord[5] = (float) separated.getMaxY();
+		ncoord[3] = ncoord[7] = (float) separated.getMinY();
 		Rectangle2D.Float nrect = new Rectangle2D.Float(ncoord[0], ncoord[1],
 				Math.abs(ncoord[4]-ncoord[0]), Math.abs(ncoord[3]-ncoord[1]));
 
@@ -1310,6 +1351,115 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				drawString(g2, " " + sups, ncoord[6], ncoord[7] + h1 * .33f);
 			}
 		}
+	}
+
+	Rectangle2D fitBracketToContents(Rectangle2D bracket, List<Rectangle2D> contents, double gap) {
+		if(contents.isEmpty()){
+			return bracket;
+		}
+		Rectangle2D ink = (Rectangle2D) contents.get(0).clone();
+		for(Rectangle2D bounds : contents){
+			Rectangle2D.union(ink, bounds, ink);
+		}
+		double top = Math.min(bracket.getMinY(), ink.getMinY() - gap);
+		double bottom = Math.max(bracket.getMaxY(), ink.getMaxY() + gap);
+		return new Rectangle2D.Double(ink.getMinX() - gap, top,
+				ink.getWidth() + 2D * gap, bottom - top);
+	}
+
+	private boolean isCompactClosedGroup(SGroup group, Chemical chemical) {
+		Set<Atom> members = group.getAtoms().collect(Collectors.toSet());
+		// Count displayed positions: MUL groups can contain many coincident copies.
+		long positions = members.stream().map(a -> a.getAtomCoordinates()).distinct().count();
+		if(positions > COMPACT_SGROUP_LABEL_PADDING_ATOM_COUNT_CUTOFF || members.isEmpty()
+				|| members.stream().flatMap(a -> a.getBonds().stream())
+				.anyMatch(b -> !members.contains(b.getAtom1()) || !members.contains(b.getAtom2()))){
+			return false;
+		}
+		// An enclosing group also has to reserve space for its children's brackets.
+		return chemical.getSGroups().stream().noneMatch(child -> child != group
+				&& child.getType() != SGroupType.SUPERATOM_OR_ABBREVIATION && child.hasBrackets()
+				&& child.getAtoms().count() < members.size()
+				&& child.getAtoms().allMatch(members::contains));
+	}
+
+	private static Rectangle2D getLabelInkBounds(DisplayLabel label, FontRenderContext context) {
+		Rectangle2D ink = label.dfont.createGlyphVector(context, label.lab).getVisualBounds();
+		return new Rectangle2D.Double(ink.getX() + label.x, ink.getY() + label.y,
+				ink.getWidth(), ink.getHeight());
+	}
+
+	static void separateExternalIonLabels(Chemical chemical, List<DisplayLabel> labels,
+			FontRenderContext context, double strokeWidth) {
+		Set<Atom> bracketedAtoms = chemical.getSGroups().stream()
+				.filter(g -> g.getType() != SGroupType.SUPERATOM_OR_ABBREVIATION && g.hasBrackets())
+				.flatMap(SGroup::getAtoms).collect(Collectors.toSet());
+		for(SGroup group : chemical.getSGroups()){
+			if(group.getType() == SGroupType.SUPERATOM_OR_ABBREVIATION || !group.hasBrackets()){
+				continue;
+			}
+			Set<Atom> members = group.getAtoms().collect(Collectors.toSet());
+			Rectangle2D internal = null;
+			for(DisplayLabel label : labels){
+				if(members.contains(label.atomGroup)){
+					Rectangle2D ink = getLabelInkBounds(label, context);
+					internal = internal == null ? ink : internal.createUnion(ink);
+				}
+			}
+			if(internal == null){
+				continue;
+			}
+			double minX = members.stream().mapToDouble(a -> a.getAtomCoordinates().getX()).min().orElse(0D);
+			double maxX = members.stream().mapToDouble(a -> a.getAtomCoordinates().getX()).max().orElse(0D);
+			for(Atom ion : chemical.getAtoms()){
+				if(bracketedAtoms.contains(ion) || ion.getBondCount() != 0 || ion.getCharge() == 0){
+					continue;
+				}
+				Rectangle2D external = null;
+				for(DisplayLabel label : labels){
+					if(ion.equals(label.atomGroup)){
+						Rectangle2D ink = getLabelInkBounds(label, context);
+						external = external == null ? ink : external.createUnion(ink);
+					}
+				}
+				if(external == null || external.getMaxY() < internal.getMinY()
+						|| external.getMinY() > internal.getMaxY()){
+					continue;
+				}
+				// Reserve a narrow channel for the bracket, moving only an unattached ion's text.
+				double shift = 0D;
+				if(ion.getAtomCoordinates().getX() < minX){
+					shift = Math.min(0D, internal.getMinX() - 4D * strokeWidth - external.getMaxX());
+				} else if(ion.getAtomCoordinates().getX() > maxX){
+					shift = Math.max(0D, internal.getMaxX() + 4D * strokeWidth - external.getMinX());
+				}
+				for(DisplayLabel label : labels){
+					if(ion.equals(label.atomGroup)){
+						label.x += (float) shift;
+					}
+				}
+			}
+		}
+	}
+
+	static Rectangle2D separateBracketFromExternalIonLabels(Rectangle2D bracket,
+			List<Rectangle2D> internalLabels, List<Rectangle2D> externalLabels, double strokeWidth) {
+		double internalLeft = internalLabels.stream().mapToDouble(Rectangle2D::getMinX).min().orElse(bracket.getMinX());
+		double internalRight = internalLabels.stream().mapToDouble(Rectangle2D::getMaxX).max().orElse(bracket.getMaxX());
+		double left = bracket.getMinX();
+		double right = bracket.getMaxX();
+		// Use visible glyph bounds, including the ion's charge, instead of character-count estimates.
+		for(Rectangle2D external : externalLabels){
+			if(external.getMaxY() < bracket.getMinY() || external.getMinY() > bracket.getMaxY()){
+				continue;
+			}
+			if(external.getMaxX() < internalLeft && external.getMaxX() + strokeWidth > left){
+				left = Math.max(left, (external.getMaxX() + internalLeft) / 2D);
+			} else if(external.getMinX() > internalRight && external.getMinX() - strokeWidth < right){
+				right = Math.min(right, (external.getMinX() + internalRight) / 2D);
+			}
+		}
+		return new Rectangle2D.Double(left, bracket.getY(), right - left, bracket.getHeight());
 	}
 
 	private float computeBracketArmLength(float defaultArmLength, float bracketX, float atomDirection,
@@ -1358,6 +1508,7 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				lowestBracketX[0] = Double.NEGATIVE_INFINITY;
 				highestBracketX[0] = Double.POSITIVE_INFINITY;
 				List<AtomCoordinates> coords = new ArrayList<>(4);
+				double labelFontSize = getBracketLabelFontSize(chemical);
 				boolean expandCompactOxygenLabelPadding = shouldExpandCompactOxygenLabelPadding(cg, coordinateSpread);
 				double effectiveSpread = Math.min(coordinateSpread.x, MAX_BRACKET_LABEL_PADDING_SPREAD);
 				double perChar = bracketPositioningSlope * effectiveSpread + bracketPositioningIntercept;
@@ -1412,7 +1563,16 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 							charsLeft += Math.max(paddingChars/2, 1);
 						}
 					}
-					double yDelta = bracketHeight[0] == null ?  0.1 : bracketHeight[0]/2;
+					// Horizontal labels need their own height, not half the height of the entire SGroup.
+					double yDelta = bracketHeight[0] == null ? 0.1
+							: Math.min(bracketHeight[0]/2, labelFontSize * 0.75D);
+					if(expandCompactOxygenLabelPadding && perChar > 0D && "O".equals(a.getSymbol())
+							&& a.getBondCount() == 0 && a.getImplicitHCount() > 0){
+						// Keep the broad-molecule allowance proportional to the rendered text size.
+						double labelLimit = Math.max(MIN_COMPACT_HYDRATE_LABEL_PADDING, 2D * labelFontSize);
+						charsLeft = Math.min(charsLeft, labelLimit / perChar);
+						charsRight = Math.min(charsRight, labelLimit / perChar);
+					}
 					lastUsedFactor = perChar;
 					//see how we draw H
 					double currentPaddingLeft = charsLeft * perChar;
@@ -1529,6 +1689,22 @@ class NchemicalRenderer extends AbstractChemicalRenderer {
 				(float) rt.getY(), (float) rt.getWidth(),
 				(float) rt.getHeight());
 		return r;
+	}
+
+	private double getBracketLabelFontSize(Chemical chemical) {
+		double totalLength = 0D;
+		int bondCount = 0;
+		for(Bond bond : chemical.getBonds()){
+			double length = Math.sqrt(bond.getAtom1().getAtomCoordinates()
+					.distanceSquaredTo(bond.getAtom2().getAtomCoordinates()));
+			if(Double.isFinite(length) && length > 0D){
+				totalLength += length;
+				bondCount++;
+			}
+		}
+		double averageBondLength = bondCount == 0
+				? displayParams.getDrawPropertyValue(DrawProperties.BOND_EXPECTED_LENGTH) : totalLength / bondCount;
+		return averageBondLength * displayParams.getDrawPropertyValue(DrawProperties.ATOM_LABEL_FONT_FRACTION);
 	}
 
 	private int getHorizontalAttachmentPosition(Atom atom, String attachment, int supportedPosition) {
