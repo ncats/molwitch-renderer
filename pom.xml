@@ -24,7 +24,7 @@
 
     <groupId>gov.nih.ncats</groupId>
     <artifactId>molwitch-renderer</artifactId>
-    <version>1.0.20</version>
+    <version>1.0.21</version>
 
     <name>Molwitch Renderer</name>
 
@@ -141,7 +141,7 @@
        <dependency>
             <groupId>gov.nih.ncats</groupId>
             <artifactId>molwitch-cdk</artifactId>
-            <version>1.0.26</version>
+            <version>1.0.28</version>
             <scope>test</scope>
         </dependency>
         <dependency>
